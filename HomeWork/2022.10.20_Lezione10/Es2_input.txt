@@ -1,0 +1,8 @@
+Sara,Marco
+Marco,Giorgio
+Antonio,Sara
+Giovanna,Federico
+Federico,Sara
+Anna,Giorgio
+Giovanna,Marco
+Sara,Anna

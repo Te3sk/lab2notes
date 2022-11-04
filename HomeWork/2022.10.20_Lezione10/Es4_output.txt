@@ -1,0 +1,9 @@
+Matr	Nome	MM	AA	Stipendio
+300	Maria	9	1999	1050
+301	Luigi	5	2000	1200
+309	Marco	8	2000	1220
+306	Marta	7	1998	1100
+Matr	Nome	Stipendio
+300	Maria	1281
+309	Marco	1220
+306	Marta	1342

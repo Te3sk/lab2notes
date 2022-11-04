@@ -1,0 +1,16 @@
+>Titolo sequenza 1
+GCACTGTACC
+>Titolo sequenza 2
+GAACAGAAAGCTC
+>Titolo sequenza 3
+ACACAGG
+>Titolo sequenza 4
+ACCGGTA
+TATAGGATAAGAA
+>Titolo sequenza 5
+TGGTACAAACGGG
+>Titolo sequenza 6
+TAAAGGGA
+AG
+>Titolo sequenza 7
+TACACGAA

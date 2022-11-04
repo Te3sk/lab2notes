@@ -1,0 +1,3 @@
+Numero sequenze: 7
+Lunghezza della sequenza più lunga: 20
+Numero totale di nucleotidi: 81
