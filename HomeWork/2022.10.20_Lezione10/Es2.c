@@ -25,7 +25,7 @@ int main () {
     }
     CandList cand;
     cand.length = 0;
-    int controller;
+    int ca, cb;
 
     char a[10], b[10];
 
@@ -33,32 +33,87 @@ int main () {
     {
         fscanf(vote, "%[^,],%[^\n]\n", &a, &b);
         
-        check (&cand, a);
-        check (&cand, b);
+        ca = 0;
+        cb = 0;
+        
+        for (int i = 0; i < cand.length; i++) {
+            if (a == cand.list[i].name) {
+                cand.list[i].votes++;
+                ca++;
+            }
+        }
+
+        if (ca == 0) {
+            strcpy(cand.list[cand.length].name, a);
+            cand.list[cand.length].votes = 1;
+            cand.length++;
+        }
+
+        for (int i = 0; i < cand.length; i++) {
+            if (b == cand.list[i].name) {
+                cand.list[i].votes++;
+                cb++;
+            }
+        }
+
+        if (cb == 0) {
+            strcpy(cand.list[cand.length].name, b);
+            cand.list[cand.length].votes = 1;
+            cand.length++;
+        }
+
+        // check (&cand, a);
+        // check (&cand, b);
     }
 
-    // int m1 = 0, m2 = 0;
-
     Cand m1,m2;
-    m1.votes = 0;
-    m2.votes = 0;
+    m1.votes = -1;
+    m2.votes = -1;
 
     for (int i = 0; i < cand.length; i++) {
-        if (cand.list[i].votes > m1.votes) { //current greater than first max
+        // if (cand.list[i].votes > m1.votes) { //current greater than first max
+        //     m1.votes = cand.list[i].votes;
+        //     // a = cand.list[i].name;
+        //     strcpy(m1.name, cand.list[i].name);
+        // } else if (cand.list[i].votes < m1.votes) { //current less than first max
+        //     if (cand.list[i].votes > m2.votes) { //current greater than second max
+        //         m2.votes = cand.list[i].votes;
+        //         strcpy(m2.name, cand.list[i].name);
+        //     } else if (cand.list[i].votes == m2.votes) { //current equal to the second max
+        //         m2.votes = cand.list[i].votes;
+        //         strcpy(m2.name, cand.list[i].name); 
+        //     }
+        // } else if (strcmp(m1.name, cand.list[i].name) < 0) {
+        //     m1.votes = cand.list[i].votes;
+        //     strcpy(m1.name, cand.list[i].name);
+        // }
+
+
+        if (cand.list[i].votes > m1.votes) {
+            //current greater than FIRST max
             m1.votes = cand.list[i].votes;
-            // a = cand.list[i].name;
             strcpy(m1.name, cand.list[i].name);
-        } else if (cand.list[i].votes < m1.votes) { //current less than first max
-            if (cand.list[i].votes > m2.votes) { //current greater than second max
+        } else if (cand.list[i].votes < m1.votes) {
+            //current less than FIRST max
+            if (cand.list[i].votes > m2.votes) {
+                //current greater than SECOND max
                 m2.votes = cand.list[i].votes;
                 strcpy(m2.name, cand.list[i].name);
-            } else if (cand.list[i].votes == m2.votes) { //current equal to the second max
-                m2.votes = cand.list[i].votes;
-                strcpy(m2.name, cand.list[i].name); 
+            } else if (cand.list[i].votes == m2.votes) {
+                //current equal to the SECOND max
+                if (strcmp(m2.name, cand.list[i].name) < 0) {
+                    //current lexical greater than the SECOND max
+                    m2.votes = cand.list[i].votes;
+                    strcpy(m2.name, cand.list[i].name);
+                }
             }
-        } else if (strcmp(m1.name, cand.list[i].name) < 0) {
-            m1.votes = cand.list[i].votes;
-            strcpy(m1.name, cand.list[i].name);
+        } else {
+            //current equeal to te FIRST max
+            if (strcmp(m1.name, cand.list[i].name) < 0) {
+                //current lexical greater than the SECOND max
+                m1.votes = cand.list[i].votes;
+                strcpy(m1.name, cand.list[i].name);
+            }
         }
     }
 
