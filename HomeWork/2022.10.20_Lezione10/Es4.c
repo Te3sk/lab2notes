@@ -4,7 +4,7 @@
 typedef struct {
     int matr;
     char name[20];
-    int mmass;
+    int mmass; 
     int aaass;
     int cash;
 } Dipendente;
@@ -18,16 +18,20 @@ int main () {
         perror("Error: ");
         exit(1);
     }
+    
+    fseek(reg,0, SEEK_END);
+    int size = ftell(reg);
+    printf("%d\n", size);
+    rewind(reg);
 
-    Dipendente dip[4];
-    int c = 0;
-    char buffer[200];
+    Dipendente *dip = (Dipendente *)malloc(sizeof(dip)*sizeof(reg));
+    int *line = (int*)malloc(sizeof(int)*sizeof(reg));
+    char c;
+    char* buffer = (char*)malloc(200 * sizeof(char));
 
     for (int i = 0;i< 4; i++) {
-        // fscanf(reg, "%d %s %d %d %d\n", &dip[c].matr, &dip[c].name, &dip[c].mmass, &dip[c].aaass, &dip[c].cash);
-        // printf("-> %d %s %d %d %d\n", dip[c].matr, dip[c].name, dip[c].mmass, dip[c].aaass, dip[c].cash);
-        // c++;
-        fscanf(reg, "%[^\n]\n", &buffer);
+        // fscanf(reg, "%s\n", buffer);
+        fread(buffer, sizeof(char), 25, reg);
         printf("%s\n", buffer);
     }
 }
