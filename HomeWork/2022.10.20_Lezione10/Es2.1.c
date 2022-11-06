@@ -29,7 +29,7 @@ int main () {
 
     char a[10], b[10];
 
-    while (!feof(vote))
+    while (!feof(vote)) //read from file and fill cand struct
     {
         fscanf(vote, "%[^,],%[^\n]\n", &a, &b);
         
@@ -37,7 +37,7 @@ int main () {
         cb = 0;
         
         for (int i = 0; i < cand.length; i++) {
-            if (a == cand.list[i].name) {
+            if (strcmp(a, cand.list[i].name) == 0) {
                 cand.list[i].votes++;
                 ca++;
             }
@@ -50,7 +50,7 @@ int main () {
         }
 
         for (int i = 0; i < cand.length; i++) {
-            if (b == cand.list[i].name) {
+            if (strcmp(b, cand.list[i].name) == 0) {
                 cand.list[i].votes++;
                 cb++;
             }
@@ -70,25 +70,7 @@ int main () {
     m1.votes = -1;
     m2.votes = -1;
 
-    for (int i = 0; i < cand.length; i++) {
-        // if (cand.list[i].votes > m1.votes) { //current greater than first max
-        //     m1.votes = cand.list[i].votes;
-        //     // a = cand.list[i].name;
-        //     strcpy(m1.name, cand.list[i].name);
-        // } else if (cand.list[i].votes < m1.votes) { //current less than first max
-        //     if (cand.list[i].votes > m2.votes) { //current greater than second max
-        //         m2.votes = cand.list[i].votes;
-        //         strcpy(m2.name, cand.list[i].name);
-        //     } else if (cand.list[i].votes == m2.votes) { //current equal to the second max
-        //         m2.votes = cand.list[i].votes;
-        //         strcpy(m2.name, cand.list[i].name); 
-        //     }
-        // } else if (strcmp(m1.name, cand.list[i].name) < 0) {
-        //     m1.votes = cand.list[i].votes;
-        //     strcpy(m1.name, cand.list[i].name);
-        // }
-
-
+    for (int i = 0; i < cand.length; i++) { //find 2 max
         if (cand.list[i].votes > m1.votes) {
             //current greater than FIRST max
             m1.votes = cand.list[i].votes;
@@ -118,21 +100,6 @@ int main () {
     }
 
     printf("%s con %d voti\n%s con %d voti\n", m1.name, m1.votes, m2.name, m2.votes);
-    
-}
 
-void check (CandList* cand, char n[]) {
-    int c = 0;
-
-    for (int i = 0; i < cand->length; ++i) {
-        if (cand->list[i].name == n) {
-            cand->list[i].votes++;
-            c++;
-        }
-    }
-    if (c == 0) {
-        strcpy(cand->list[cand->length].name, n);
-        cand->list[cand->length].votes = 1;
-        cand->length++;
-    }
+    fclose(vote);   
 }
