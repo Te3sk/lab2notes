@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #define row 4
+#define buffer_size 1000
 typedef struct
 {
     int matr;
@@ -16,16 +17,17 @@ void compute_cash();
 int main()
 {
     FILE *reg = fopen("Es4_input.dat", "rb");
-    char *buffer;
-    int c, size = fseek(reg, 0, SEEK_END) - fseek(reg, 0, SEEK_SET);
-    char temp;
+    unsigned char buffer[buffer_size];
 
-    for (int i = 0; i < 4; i++)
+    int file_size = fread(buffer, sizeof(unsigned char), buffer_size, reg);
+
+    printf("file size -> %d bytes\n", file_size);
+    printf("size of each element -> %d bytes\n", sizeof(unsigned char));
+
+    for (int i = 0; i < file_size; i++)
     {
-        fread(buffer, sizeof(char), size / 4, reg);
-        printf("riga %d -> %s\n", i + 1, buffer);
-        fseek(reg, ((size / 4) * i), SEEK_SET);
+        printf("%c", buffer[i]);
     }
 
-    printf("\nlunghezza file --> %d\n", c);
+    fclose(reg);
 }
