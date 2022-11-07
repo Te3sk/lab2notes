@@ -1,37 +1,31 @@
-#include<stdio.h>
-#include<stdlib.h>
-
-typedef struct {
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define row 4
+typedef struct
+{
     int matr;
     char name[20];
-    int mmass; 
+    int mmass;
     int aaass;
     int cash;
 } Dipendente;
 
-void compute_cash ();
+void compute_cash();
 
-int main () {
-    FILE* reg = fopen("Es4_input.dat", "rb");
+int main()
+{
+    FILE *reg = fopen("Es4_input.dat", "rb");
+    char *buffer;
+    int c, size = fseek(reg, 0, SEEK_END) - fseek(reg, 0, SEEK_SET);
+    char temp;
 
-    if (!reg) {
-        perror("Error: ");
-        exit(1);
+    for (int i = 0; i < 4; i++)
+    {
+        fread(buffer, sizeof(char), size / 4, reg);
+        printf("riga %d -> %s\n", i + 1, buffer);
+        fseek(reg, ((size / 4) * i), SEEK_SET);
     }
-    
-    fseek(reg,0, SEEK_END);
-    int size = ftell(reg);
-    printf("%d\n", size);
-    rewind(reg);
 
-    Dipendente *dip = (Dipendente *)malloc(sizeof(dip)*sizeof(reg));
-    int *line = (int*)malloc(sizeof(int)*sizeof(reg));
-    char c;
-    char* buffer = (char*)malloc(200 * sizeof(char));
-
-    for (int i = 0;i< 4; i++) {
-        // fscanf(reg, "%s\n", buffer);
-        fread(buffer, sizeof(char), 25, reg);
-        printf("%s\n", buffer);
-    }
+    printf("\nlunghezza file --> %d\n", c);
 }
