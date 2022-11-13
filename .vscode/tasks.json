@@ -2,14 +2,23 @@
     "tasks": [
         {
             "type": "cppbuild",
+<<<<<<< HEAD
             "label": "C/C++: gcc.exe build active file",
             "command": "C:\\Program Files\\mingw-w64\\x86_64-8.1.0-posix-seh-rt_v6-rev0\\mingw64\\bin\\gcc.exe",
+=======
+            "label": "C/C++: gcc build active file",
+            "command": "/usr/bin/gcc",
+>>>>>>> 4de97a8612c97972763efb546f0134a1363aae07
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
                 "-o",
+<<<<<<< HEAD
                 "${fileDirname}\\${fileBasenameNoExtension}.exe"
+=======
+                "${fileDirname}/${fileBasenameNoExtension}"
+>>>>>>> 4de97a8612c97972763efb546f0134a1363aae07
             ],
             "options": {
                 "cwd": "${fileDirname}"
