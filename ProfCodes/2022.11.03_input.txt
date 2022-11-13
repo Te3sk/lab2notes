@@ -1,0 +1,16 @@
+Rossi;Marco;13
+Rossi;Giovanni;24
+Rossi;Sara;13
+Rossi;Giovanna;24
+Bianchi;Marco;1
+Bianchi;Giovanni;7
+Bianchi;Sara;24
+Bianchi;Giovanna;11
+Giorgi;Marco;22
+Giorgi;Giovanni;18
+Giorgi;Sara;22
+Giorgi;Giovanna;16
+Galli;Marco;24
+Galli;Giovanni;8
+Galli;Sara;15
+Galli;Giovanna;28
