@@ -32,8 +32,8 @@ void queue_init(queue_t *q) {
     q->tail = 0;
     q->size = 0;
     pthread_mutex_init(&(q->lock), NULL);
-    phtread_cond_init(&(q->not_empty), NULL);
-    phtread_cond_init(&(q->not_full), NULL);
+    pthread_cond_init(&(q->not_empty), NULL);
+    pthread_cond_init(&(q->not_full), NULL);
 }
 
 void queue_destroy(queue_t *q) {
@@ -46,7 +46,7 @@ void queue_destroy(queue_t *q) {
 void queue_push(queue_t *q, int fd) {
     pthread_mutex_lock(&(q->lock));
     while ((q->size == QUEUE_SIZE)) {
-        phtread_cond_wait(&(q->not_full), &(q->lock));
+        pthread_cond_wait(&(q->not_full), &(q->lock));
     }
     q->data[q->tail] = fd;
     q->tail = (q->tail + 1) % QUEUE_SIZE;
@@ -58,7 +58,7 @@ void queue_push(queue_t *q, int fd) {
 int queue_pop(queue_t *q) {
     pthread_mutex_lock(&(q->lock));
     while ((q->size == QUEUE_SIZE)) {
-        phtread_cond_wait(&(q->not_empty), &(q->lock));
+        pthread_cond_wait(&(q->not_empty), &(q->lock));
     }
     int value = q->data[q->head];
     q->head = (q->head + 1) % QUEUE_SIZE;
@@ -69,15 +69,23 @@ int queue_pop(queue_t *q) {
 }
 
 void* worker(void* arg) {
-    char buf[BUFFER_SIZE];
 
-    int fd = *(int*) arg;
-    read(fd, buf, BUFFER_SIZE);
-    printf("Il cliente ha inviato %s\n", buf);
-    write(fd, buf, strlen(buf) + 1);
-    close(fd);
+    queue_t q = *(queue_t *) arg;
+    while (1) {
+        int clientFD = queue_pop(&q);
+        char buf[BUFFER_SIZE];
+        read(clientFD, buf, BUFFER_SIZE);
+        printf("Il cliente ha inviato %s\n", buf);
+        write(clientFD, buf, strlen(buf) + 1);
+        close(clientFD);
+    }
+    // int fd = *(int*) arg;
+    // read(fd, buf, BUFFER_SIZE);
+    // write(fd, buf, strlen(buf) + 1);
+    // printf("Il cliente ha inviato %s\n", buf);
+    // close(fd);
 
-    return NULL;    
+    return NULL;
 }
 
 int main(int argc, char* argv[]) {
@@ -130,7 +138,7 @@ int main(int argc, char* argv[]) {
             perror("Errore nella accept");
             continue;
         }
-        printf("E' arrivato un cliente");
+        printf("Nuovo cliente connesso\n");
         queue_push(&q, clientFD);
     }
 
