@@ -1,3 +1,5 @@
+// Variazione 1: implementare il server in modo single thread
+
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>

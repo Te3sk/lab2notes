@@ -2,4 +2,7 @@
     "C_Cpp.autocomplete": "default",
     "C_Cpp.intelliSenseEngine": "default",
     "files.autoSave": "onFocusChange",
+    "files.associations": {
+        "inet.h": "c"
+    },
 }
