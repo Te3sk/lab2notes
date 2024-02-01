@@ -12,6 +12,7 @@
 // Variante 3: implementare un server multi thread con un
 // pool di N thread worker che ricevono dei clienti da
 // pool di N thread worker che ricevano dei clienti da
+// pool di N thread worker che ricevano dei clienti da
 // gestire (un thread gestisce più clienti in concomitanza)
 
 #include <stdio.h>
@@ -24,88 +25,93 @@
 #include <string.h>
 #include <sys/select.h>
 
-#define N 100
+#define BUFFER_SIZE 100
+#define IP_ADDRESS "192.168.111.47"
 #define PORT 2222
 
 int main()
 {
-    // Creare un socket TCP
+    // Socket creating - AF_INET -> IPv4
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-    // Inserire indirizzo IP e porta
+    // Server address initialization
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
+    // TODO - PORT and IP_ADDRESS variables to initialize
     server_addr.sin_port = htons(PORT);
-    server_addr.sin_addr.s_addr = inet_addr("192.168.111.47");
+    server_addr.sin_addr.s_addr = inet_addr(IP_ADDRESS);
 
-    fd_set readfds; // insieme di file descriptor
-
-    // Connessione al server
-    int conn = 0;
-    while ((conn = connect(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr))) == -1 && errno == ENOENT)
+    // Connect to the server
+    if (connect(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
-        sleep(1);
-    }
-
-    if (conn == -1)
-    {
-        perror("Connection error");
+        perror("connect");
         exit(EXIT_FAILURE);
     }
     else
     {
-        printf("Connessione riuscita\n");
+        printf("Connected to the server\n");
     }
 
-    char buff[N];
+    // fd set initialization
+    fd_set readfds;
+    FD_ZERO(&readfds);
 
-    // while(1)
+    printf("Inserire messaggio (exit per uscire):\n");
     while (1)
     {
-        // Inserire messaggio
-        printf("Inserire messaggio ('exit' per uscire):\n");
-        // scanf("%s", buff);
-
-
-        // Inizializzare l'insieme di file descriptor
-        FD_ZERO(&readfds);
+        // Add the server socket to the set
         FD_SET(server_fd, &readfds);
+        // Add the user input to the set
         FD_SET(STDIN_FILENO, &readfds);
 
-        // attendere la presenza di dati da parte del server
-        if (select(server_fd + 1, &readfds, NULL, NULL, NULL) < 0)
-        {
-            perror("select");
-            exit(EXIT_FAILURE);
-        }
+        // Wait for activity on any of the sockets in the set
+        select(server_fd + 1, &readfds, NULL, NULL, NULL);
+        // Data reading
+        char buff[BUFFER_SIZE];
 
-        // Ricevere dati dallo server
-        if (FD_ISSET(server_fd, &readfds))
+        if (FD_ISSET(STDIN_FILENO, &readfds) != 0) // Case: user wrote on std input
         {
-            read(server_fd, buff, N);
-            printf("Server ha inviato:\t%s\n", buff);
-        }
-
-        // Ricevere dati dall'utente
-        if (FD_ISSET(STDIN_FILENO, &readfds))
-        {
-            scanf("%s", buff);
-            // Controllare se l'utente vuole uscire
-            if (strcmp(buff, "exit") == 0)
+            // Read user input
+            if (fgets(buff, BUFFER_SIZE, stdin) == NULL)
             {
-                printf("Sicuro di voler uscire? (y/n)\n");
-                scanf("%s", buff);
-                if (strcmp(buff, "y") == 0)
+                perror("Errore nella lettura dell'input");
+                exit(EXIT_FAILURE);
+            }
+            // Check if user want to exit
+            if (strcmp(buff, "exit\n") == 0)
+            {
+                printf("Confermi di voler uscire?(y/n)\n");
+                if (fgets(buff, BUFFER_SIZE, stdin) == NULL)
+                {
+                    perror("Errore nella lettura dell'input");
+                    exit(EXIT_FAILURE);
+                }
+                if (buff[0] == 'y')
                 {
                     break;
                 }
             }
-            write(server_fd, buff, strlen(buff));
-            printf("\tMessaggio inviato\n");
+            else
+            {
+                // Sending message
+                write(server_fd, buff, strlen(buff));
+                printf("Inserire messaggio (exit per uscire):\n");
+            }
+        }
+        else if (FD_ISSET(server_fd, &readfds) != 0) // Case: server send message on socket
+        {
+            printf("messaggio dal server\n");
+            // Recive answere
+            int bytesread = read(server_fd, buff, BUFFER_SIZE);
+            if (bytesread < 0) {
+                perror("read");
+                exit(EXIT_FAILURE);
+            }
+            printf("Server ha inviato:\t%s\n", buff);
+            printf("Inserire messaggio (exit per uscire):\n");
         }
     }
-
-    // chiudere la connessione
+    // Closing socket
     close(server_fd);
 
     return 0;

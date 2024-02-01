@@ -9,6 +9,7 @@
 
 
 #define N 100
+#define IP_ADDRESS "192.168.111.47"
 
 int main(){
 	//Creo un socket
@@ -18,7 +19,7 @@ int main(){
 	struct sockaddr_in serverAddr;
 	serverAddr.sin_family=AF_INET;
 	serverAddr.sin_port=htons(2222);
-	serverAddr.sin_addr.s_addr=inet_addr("192.168.111.47");
+	serverAddr.sin_addr.s_addr=inet_addr(IP_ADDRESS);
 
 	//Tento di connettersi al server
 	int conn=0;

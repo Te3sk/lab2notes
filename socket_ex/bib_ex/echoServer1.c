@@ -11,6 +11,8 @@
 #include <sys/select.h>
 
 #define N 100
+#define IP_ADDRESS "192.168.111.47"
+#define PORT 2222
 
 int main(){
 
@@ -20,8 +22,8 @@ int main(){
 	//Creazione della struttura dati per la descrizione del server
 	struct sockaddr_in serverAddr;
 	serverAddr.sin_family=AF_INET;
-	serverAddr.sin_port=htons(2222);
-	serverAddr.sin_addr.s_addr=inet_addr("192.168.111.47");
+	serverAddr.sin_port=htons(PORT);
+	serverAddr.sin_addr.s_addr=inet_addr(IP_ADDRESS);
 	
 	//Bind del socket
 	bind(server,(struct sockaddr*)&serverAddr,sizeof(serverAddr));
@@ -46,7 +48,6 @@ int main(){
 		for (int i=0;i<fdMax+1;i++){
 			//Controllo se il file descriptor e' attivo
 			if (FD_ISSET(i,&readFDs)){
-
 				//Caso server
 				if (i==server){
 
