@@ -1,6 +1,10 @@
-// Variante 3: implementare un server multithread con un pool di N thread worker
+// # Variante 3: 
+// implementare un server multithread con un pool di N thread worker
 // (N è un parametro da linea di comando). Gli N thread ricevono i clienti da gestire
 // tramite una coda condivisa
+
+// ! problemi nell'invio della risposta del server: la risposta viene 
+// ! inviata ma il cliente la riceve solo dopo che il server viene terminato
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,11 +83,6 @@ void* worker(void* arg) {
         write(clientFD, buf, strlen(buf) + 1);
         close(clientFD);
     }
-    // int fd = *(int*) arg;
-    // read(fd, buf, BUFFER_SIZE);
-    // write(fd, buf, strlen(buf) + 1);
-    // printf("Il cliente ha inviato %s\n", buf);
-    // close(fd);
 
     return NULL;
 }
