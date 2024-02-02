@@ -37,7 +37,6 @@ int main()
     // Server address initialization
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    // TODO - PORT and IP_ADDRESS variables to initialize
     server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = inet_addr(IP_ADDRESS);
 

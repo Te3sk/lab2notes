@@ -24,6 +24,11 @@
 #define PORT 2222
 #define IP_ADDRESS "192.168.111.47"
 
+void tempFunc()
+{
+    printf("entrato in tempfunc\n");
+}
+
 int main()
 {
     int server_fd, client_fd, bytesread;
@@ -39,6 +44,9 @@ int main()
         exit(EXIT_FAILURE);
     }
 
+    // TODO - temp
+    printf("\tserver_fd = %d\n", server_fd);
+
     // AF_INET to run both client and server on the same machine
     server_addr.sin_family = AF_INET;
     // TODO - PORT and IP_ADDRESS variables to initialize
@@ -52,6 +60,9 @@ int main()
         exit(EXIT_FAILURE);
     }
 
+    // TODO - temp
+    printf("\t(binding)server_fd = %d\n", server_fd);
+
     // Listen to the socket, with #MAX_CLIENT in the waiting queue
     // TODO - MAX_CLIENTS variable to initialize
     if (listen(server_fd, MAX_CLIENTS) < 0)
@@ -60,28 +71,28 @@ int main()
         exit(EXIT_FAILURE);
     }
 
+    // TODO - temp
+    printf("\t(listening)server_fd = %d\n", server_fd);
+
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(server_fd, &readfds);
     int max_fd = server_fd;
 
+    // TODO - temp
+    printf("\t(fd set creation)server_fd = %d\n", server_fd);
+
     // Open the server, waiting for a client to connect
     while (1)
     {
-
-        // Add the client socket to the set
-        FD_SET(client_fd, &readfds);
-        if (client_fd > max_fd)
-        {
-            max_fd = client_fd;
-        }
-
         for (int i = 0; i <= max_fd; i++)
         {
             if (FD_ISSET(i, &readfds))
             {
                 if (i == server_fd) // caso server
                 {
+                    // TODO - temp test
+                    printf("\n\tentrato nel caso server (fd: %d)\t-\t", i);
                     // Take connection
                     if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addrlen)) < 0)
                     {
@@ -89,38 +100,60 @@ int main()
                         exit(EXIT_FAILURE);
                     }
 
-                    printf("Client connesso\n");
+                    // TODO - temp test
+                    printf("Client connesso, client_fd = %d, max_fd = %d\n", client_fd, max_fd);
                     FD_SET(client_fd, &readfds);
+                    if (client_fd > max_fd)
+                    {
+                        printf("\t\tcambiato max_fd  %d -> a -> %d\n", max_fd, client_fd);
+                        max_fd = client_fd;
+                    }
                     max_fd = (client_fd > max_fd) ? client_fd : max_fd;
                 }
                 else // caso client
                 {
+                    // TODO - temp test
+                    printf("\n\tentrato nel caso client (fd: %d)\t-\t", i);
                     char buff[BUFFER_SIZE];
                     int bytesread = read(i, buff, BUFFER_SIZE);
-                    if (bytesread <= 0) {
-                        if (bytesread == 0) {
+                    if (bytesread <= 0)
+                    {
+                        if (bytesread == 0)
+                        {
                             printf("Client disconnesso\n");
                             close(i);
-                            if (i == max_fd) {
-                                do{
+                            if (i == max_fd)
+                            {
+                                do
+                                {
                                     max_fd--;
-                                } while(!FD_ISSET(max_fd, &readfds));
+                                } while (!FD_ISSET(max_fd, &readfds));
                             }
                             FD_CLR(i, &readfds);
-                        } else {
+                        }
+                        else
+                        {
                             perror("read");
                             exit(EXIT_FAILURE);
                         }
-                    } else {
+                    }
+                    else
+                    {
                         printf("Il cliente ha inviato: %s\n", buff);
+                        tempFunc();
                         // TODO - qui il server deve mandare il messaggio di quel client a tutti gli altri client
-                        for (int j = 0; j <= max_fd; j++) {
-                            if (FD_ISSET(j, &readfds)) {
-                                if (j != server_fd && j != i) {
+                        for (int j = 0; j <= max_fd; j++)
+                        {
+                            if (FD_ISSET(j, &readfds))
+                            {
+                                if (j != server_fd && j != i)
+                                {
                                     write(j, buff, bytesread);
                                 }
                             }
                         }
+                        // TODO - temp test
+                        printf("uscito dal for di scrittura\n");
                     }
                 }
             }
@@ -132,77 +165,3 @@ int main()
 
     return 0;
 }
-
-// char *reader(int client_socket)
-// {
-//     int bytesread;
-//     char *buffer = (char *)malloc(sizeof(char) * BUFFER_SIZE);
-
-//     if ((bytesread = read(client_socket, buffer, BUFFER_SIZE)) < 0)
-//     {
-//         perror("read");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     return buffer;
-// }
-
-// int main()
-// {
-//     int server_fd, client_fd, bytesread;
-//     ssize_t valread;
-//     struct sockaddr_in server_addr, client_addr;
-//     socklen_t client_addr_len = sizeof(client_addr);
-//     char buffer[BUFFER_SIZE] = {0};
-
-//     // Creazione socket
-//     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-//     {
-//         perror("creazione socket");
-//         exit(EXIT_FAILURE);
-//     }
-//     server_addr.sin_family = AF_INET;
-//     server_addr.sin_port = htons(PORT);
-//     server_addr.sin_addr.s_addr = inet_addr(IP_ADDRESS);
-
-//     // Bind socket
-//     if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
-//     {
-//         perror("bind");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     // Listen socket
-//     if (listen(server_fd, MAX_CLIENTS) < 0)
-//     {
-//         perror("listen");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     // riceve la connessione
-//     client_fd = accept(server_fd, NULL, NULL);
-
-//     if (client_fd  < 0)
-//     {
-//         perror("accept");
-//         exit(EXIT_FAILURE);
-//     }
-//     printf("cliente connesso\n");
-
-//     // Legge i dati
-//     char *temp = reader(client_fd);
-//     printf("Il cliente ha inviato:\t%s\n", temp);
-
-//     // Invia i dati
-//     write(client_fd, buffer, bytesread);
-
-//     // Apro il server, ascolta le connessioni
-//     // while (1)
-//     // {
-//     // }
-
-//     close(client_fd);
-//     close(server_fd);
-
-//     return 0;
-// }
