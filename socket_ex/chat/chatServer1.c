@@ -6,8 +6,11 @@
 // Variante 1: implementare il server single thread
 
 // TODO - problemi nell'uso della socket condivisa
-// ! il client invia il messaggio ma il server non lo stampa e non lo reinvia,
-// ! quando viene chiuso il server il client riceve il messaggio all'infinito, ma solo il client che l'ha inviato
+// ! il server blocca il ciclo rispetto al primo client
+// ! che si connette: riceve la connessione e i messaggi
+// ! degli altri ma li stampa solo dopo un'istruzione proveniente dal primo client
+
+// TODO - aggiungere segnale di terminazione per il client
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +27,18 @@
 #define PORT 2222
 #define IP_ADDRESS "192.168.111.47"
 
+// TODO - tempo testing functions
+void tempSetSize (fd_set *set, int max_fd) {
+    int count = 0;
+    for (int i = 0; i < max_fd; i++) {
+        if (FD_ISSET(i, set)) {
+            count++;
+        }
+    }
+    printf("Number of clients: %d\n", count);
+    return;
+}
+
 void tempFunc()
 {
     printf("entrato in tempfunc\n");
@@ -34,7 +49,6 @@ int main()
     int server_fd, client_fd, bytesread;
     struct sockaddr_in server_addr, client_addr;
     socklen_t addrlen = sizeof(client_addr);
-    // TODO - BUFFER_SIZE variable to initialize
     char buffer[BUFFER_SIZE];
 
     // Creating socket file descriptor
@@ -49,7 +63,6 @@ int main()
 
     // AF_INET to run both client and server on the same machine
     server_addr.sin_family = AF_INET;
-    // TODO - PORT and IP_ADDRESS variables to initialize
     server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = inet_addr(IP_ADDRESS);
 
@@ -64,7 +77,6 @@ int main()
     printf("\t(binding)server_fd = %d\n", server_fd);
 
     // Listen to the socket, with #MAX_CLIENT in the waiting queue
-    // TODO - MAX_CLIENTS variable to initialize
     if (listen(server_fd, MAX_CLIENTS) < 0)
     {
         perror("listen");
@@ -85,9 +97,22 @@ int main()
     // Open the server, waiting for a client to connect
     while (1)
     {
+        // TODO - temp test
+        printf("\t\tinizio while\n");
+        // TODO - temp test
+        tempSetSize(&readfds, max_fd);
+
+        if (select(max_fd + 1, &readfds, NULL, NULL, NULL) == -1)
+        {
+            perror("select(tempfds)");
+            exit(EXIT_FAILURE);
+        }
+
         for (int i = 0; i <= max_fd; i++)
         {
-            if (FD_ISSET(i, &readfds))
+            // TODO - temp test
+            printf("\t\tinizio for (%d of %d)\n", i, max_fd);
+            if (FD_ISSET(i, &readfds)) // chek if file descriptor "i" is in the set "readfds"
             {
                 if (i == server_fd) // caso server
                 {
@@ -158,9 +183,6 @@ int main()
                 }
             }
         }
-        // Data reading
-
-        // Data writing
     }
 
     return 0;
