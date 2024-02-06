@@ -12,11 +12,19 @@
 #include <sys/select.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdbool.h>
+#include <string.h>
 
 #define IP_ADDRESS "192.168.111.47"
 #define PORT 2222
 #define MAX_CLIENTS 100
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE (1024 * sizeof(char))
+
+typedef struct
+{
+    int fd;
+    bool send;
+} Client;
 
 int main()
 {
@@ -66,6 +74,14 @@ int main()
     // TODO - temp test
     printf("set ok\n");
 
+    // initializing client data structure
+    Client clients[MAX_CLIENTS];
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        clients[i].fd = -1;
+        clients[i].send = false;
+    }
+
     // main cycle of program
     while (1)
     {
@@ -108,6 +124,13 @@ int main()
                     // TODO - temp test
                     printf("\t\taccept ok - clientFD : %d\n", client_fd);
 
+                    // simil handshake - send msg to client with the server identifier for it
+                    char msg[BUFFER_SIZE];
+                    sprintf(msg, "%d", client_fd);
+                    // TODO - temp test
+                    printf("msg:\t%s\0", msg);
+                    write(client_fd, msg, sizeof(char)*strlen(msg));
+
                     // add new client to file descriptor set
                     FD_SET(client_fd, &allFDs);
                     if (client_fd > fdMax)
@@ -145,17 +168,63 @@ int main()
                     }
                     else
                     {
-                        printf("client sended: %s\n\tfile descriptor in the set:\n", buf);
+                        // TODO - temp test
+                        printf("\tletta stringa di lunghezza:\t%d\n", strlen(buf));
+                        // TODO - temp test
+                        // TODO - temp test
+                        printf("\tscritta stringa di lunghezza:\t%d\n", strlen(buf));
+                        for (int k = 0; k < strlen(buf); k++)
+                        {
+                            printf("\t%c", buf[k]);
+                        }
+                        printf("\n");
+                        for (int k = 0; k < strlen(buf); k++)
+                        {
+                            printf("\t%d", k + 1);
+                        }
+                        printf("\n");
+
+                        buf[bytesRead <= (BUFFER_SIZE - 1) ? bytesRead : BUFFER_SIZE - 1] = '\0';
+                        char *bufcpy = strdup(buf);
+                        // separate client id from msg
+                        char *token = strtok(buf, "_");
+                        int cid = atoi(token);
+                        token = strtok(NULL, "_");
+                        char *msg = token;
+                        // ! problem with token pointer in this free
+                        // free(token);
+
+                        printf("client n %d sended: %s\n\tbuf = %s\n\tbufcpy = %s", cid, msg, buf, bufcpy);
                         // TODO - send it to other clients
                         for (int j = 0; j <= fdMax; j++)
                         {
-                            if (FD_ISSET(j, &allFDs) && j != server_fd && j != i)
+                            // TODO - temp test
+                            printf("\t\tfd:%d\n", j);
+                            if (!FD_ISSET(j, &allFDs))
                             {
-                                if(write(j, buf, bytesRead) == -1) {
-                                    perror("write failed");
-                                }
+                                printf("\t\t-\tnon e' un fd\n");
+                                continue;
+                            }
+                            else if (j == server_fd)
+                            {
+                                printf("\t\t-\te' il server\n");
+                                continue;
+                            }
+                            else if (j == i)
+                            {
+                                printf("\t\t-\te' il client che ha inviato\n");
+                                continue;
+                            }
+                            else
+                            // * if (FD_ISSET(j, &allFDs) && j != server_fd)
+                            {
                                 // TODO - temp test
-                                printf("\t\t\tok write to client whit fd %d\n", j);
+                                printf("\tsend ' %s ' to fd n: %d\n", bufcpy, j);
+                                if (write(j, bufcpy, (bytesRead + strlen("0_"))) == -1)
+                                {
+                                    perror("write failed");
+                                    exit(EXIT_FAILURE);
+                                }
                             }
                         }
                     }

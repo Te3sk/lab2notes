@@ -13,6 +13,7 @@
 // pool di N thread worker che ricevono dei clienti da
 // pool di N thread worker che ricevano dei clienti da
 // pool di N thread worker che ricevano dei clienti da
+// pool di N thread worker che ricevano dei clienti da
 // gestire (un thread gestisce più clienti in concomitanza)
 
 #include <stdio.h>
@@ -27,12 +28,19 @@
 
 #define PORT 2222
 #define IP_ADDRESS "192.168.111.47"
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE (1024) * sizeof(char)
+
+char *check_msg(int, char *);
+
+void clear_input();
 
 int main()
 {
     // socket creation
     int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    // TODO - temp test
+    printf("socket id: %d\n", sock_fd);
 
     // build socket address
     struct sockaddr_in serverAddr;
@@ -53,8 +61,16 @@ int main()
         exit(EXIT_FAILURE);
     }
 
+    // simil handshake for client identifier
+    char *temp = (char *)malloc(sizeof(char) * BUFFER_SIZE);
+    read(sock_fd, temp, sizeof(1024));
+    int myID = atoi(temp);
+    free(temp);
     // TODO - temp test
-    printf("connessione riuscita\n");
+    printf("connessione riuscita\t|\tClient ID: %d\n", myID);
+
+    // TODO - temp test
+    printf("socket: %d\t\t|\tstdin_fileno: %d\n", (sock_fd), (STDIN_FILENO));
 
     // build fd set
     fd_set allFDs;
@@ -69,7 +85,7 @@ int main()
         FD_SET(STDIN_FILENO, &allFDs);
 
         // waiting for activity in one between socket and std input
-        if ((select((sock_fd > STDIN_FILENO ? sock_fd : STDIN_FILENO) + 1, &allFDs, NULL, NULL, NULL)) == -1)
+        if ((select(sock_fd + 1, &allFDs, NULL, NULL, NULL)) == -1)
         {
             perror("select()");
             exit(EXIT_FAILURE);
@@ -110,19 +126,27 @@ int main()
                 printf("\t\tok, continuo\n");
             }
 
+            // build final string (to send) with own identifier
+            char fin_msg[BUFFER_SIZE];
+            sprintf(fin_msg, "%d_%s\0", myID, buf);
+            // TODO - temp test
+            printf("fin_msg:\t%s\n", fin_msg);
+
             // send to server
-            if (write(sock_fd, buf, strlen(buf)) == -1)
+            if (write(sock_fd, fin_msg, strlen(fin_msg)) == -1)
             {
                 perror("write()");
                 exit(EXIT_FAILURE);
             }
-            // TODO - temp test
-            printf("\t\twrite ok\n");
+
+            clear_input();
+
+            check_msg(myID, fin_msg);
+            printf("\n\t\twrite ok\n");
 
             printf("Inserire messaggio ('exit' per uscire):\n\t");
         }
-
-        if (FD_ISSET(sock_fd, &allFDs))
+        else if (FD_ISSET(sock_fd, &allFDs))
         {
             // socket case
             // TODO - temp test
@@ -131,11 +155,24 @@ int main()
 
             // read server msg
             int bytesread = read(sock_fd, buf, BUFFER_SIZE);
-            if (bytesread == 0) {
+            if (bytesread == 0)
+            {
                 printf("\t\tserver disconesso\n");
-            } else if (bytesread == -1) {
+            }
+            else if (bytesread == -1)
+            {
                 perror("read()");
                 exit(EXIT_FAILURE);
+            }
+
+            char *temp = check_msg(myID, buf);
+            if (temp == NULL)
+            {
+                printf("-----------\n\tsono io\n-----------\n");
+            }
+            else
+            {
+                printf("-----------\n\nmsg =\t%s\n-----------\n", temp);
             }
 
             printf("server ha inviato:\t%s\n", buf);
@@ -146,4 +183,58 @@ int main()
     close(sock_fd);
 
     return 0;
+}
+
+char *check_msg(int myID, char *buf)
+{
+    // riceve una stringa della forma 'x_stringa', dove x è un intero e stringa è il messaggio
+    char *fin_msg;
+
+    printf("\tCHECK_MSG():\n");
+
+    if (!(buf[1] == '_'))
+    {
+        printf("MALE");
+        return NULL;
+    }
+
+    // TODO - temp test
+    printf("\tletta stringa di lunghezza:\t%d\n", strlen(buf));
+    for (int k = 0; k < strlen(buf); k++)
+    {
+        printf("\t%c", buf[k]);
+    }
+    for (int k = 0; k < strlen(buf); k++)
+    {
+        printf("\t%d", k + 1);
+    }
+
+    printf("\n");
+
+    char *token = strtok(buf, "_");
+    int senderID = atoi(token);
+    // TODO - temp test
+    printf("prima parte:\t%d\n", senderID);
+    token = strtok(NULL, "_");
+    char *msg;
+    strcpy(msg, token);
+    // TODO - temp test
+    printf("seconda parte:\t%s\n", msg);
+
+    if (senderID == myID)
+    {
+        return NULL;
+    }
+    else
+    {
+        return msg;
+    }
+}
+
+void clear_input()
+{
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF)
+    {
+    }
 }
