@@ -4,6 +4,7 @@
     "files.autoSave": "onFocusChange",
     "files.associations": {
         "inet.h": "c",
-        "cerrno": "c"
+        "cerrno": "c",
+        "errno.h": "c"
     },
 }

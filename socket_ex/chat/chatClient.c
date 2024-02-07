@@ -4,7 +4,7 @@
 // multipli presi dall'utente da tastiera
 
 // Variante 1: implementare il server single thread
- 
+
 // Variante 2: implementare il server multi thread dove
 // all'arrivo di ogni cliente viene creato un thread
 // worker nuovo che gestisce solo quel cliente
@@ -13,105 +13,164 @@
 // pool di N thread worker che ricevono dei clienti da
 // pool di N thread worker che ricevano dei clienti da
 // pool di N thread worker che ricevano dei clienti da
+// pool di N thread worker che ricevano dei clienti da
 // gestire (un thread gestisce più clienti in concomitanza)
+
+// TODO
+//      l'unico problema rimasto è che dopo che si scrive
+//      qualcosa su std input bisogna battere invio due
+//      volte altrimenti non va avanti nel ciclo
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <errno.h>
-#include <arpa/inet.h>
+#include <sys/select.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/select.h>
+#include <arpa/inet.h>
 
-#define BUFFER_SIZE 100
-#define IP_ADDRESS "192.168.111.47"
 #define PORT 2222
+#define IP_ADDRESS "192.168.111.47"
+#define BUFFER_SIZE (1024) * sizeof(char)
+
+void clear_input();
+char *read_input();
 
 int main()
 {
-    // Socket creating - AF_INET -> IPv4
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    // * socket creation
+    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-    // Server address initialization
+    // * build socket address
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = inet_addr(IP_ADDRESS);
 
-    // Connect to the server
-    if (connect(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    // * try to connect to the server
+    int conn = 0;
+    while ((conn = connect(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr))) == -1 && errno == ENOENT)
     {
-        perror("connect");
+        sleep(1);
+    }
+    if (conn == -1)
+    {
+        perror("Connection failed");
         exit(EXIT_FAILURE);
     }
-    else
-    {
-        printf("Connected to the server\n");
-    }
 
-    // fd set initialization
-    fd_set readfds;
-    FD_ZERO(&readfds);
+    // * declarate file descriptor set
+    fd_set allFDs;
 
-    printf("Inserire messaggio (exit per uscire):\n");
+    printf("Inserire messaggio (exit per uscire):\n\t");
+
+    // * main cycle
     while (1)
     {
-        // Add the server socket to the set
-        FD_SET(server_fd, &readfds);
-        // Add the user input to the set
-        FD_SET(STDIN_FILENO, &readfds);
+        // * initializing fd set with socket fd and stdin fd
+        FD_ZERO(&allFDs);
+        FD_SET(sock_fd, &allFDs);
+        FD_SET(STDIN_FILENO, &allFDs);
 
-        // Wait for activity on any of the sockets in the set
-        select(server_fd + 1, &readfds, NULL, NULL, NULL);
-        // Data reading
-        char buff[BUFFER_SIZE];
-
-        if (FD_ISSET(STDIN_FILENO, &readfds) != 0) // Case: user wrote on std input
+        // * waiting for activity in stdin or socket
+        if ((select(sock_fd + 1, &allFDs, NULL, NULL, NULL) == -1))
         {
-            // Read user input
-            if (fgets(buff, BUFFER_SIZE, stdin) == NULL)
+            perror("Select failed");
+            exit(EXIT_FAILURE);
+        }
+
+        char *buf = (char *)malloc(BUFFER_SIZE * sizeof(char));
+
+        if (FD_ISSET(STDIN_FILENO, &allFDs))
+        {
+            // * std input case
+
+            buf = read_input();
+
+            // error handling
+            if (write(sock_fd, buf, strlen(buf)) == -1)
             {
-                perror("Errore nella lettura dell'input");
+                perror("write failed");
                 exit(EXIT_FAILURE);
             }
-            // Check if user want to exit
-            if (strcmp(buff, "exit\n") == 0)
+
+            // clear_input();
+
+            printf("Inserire messaggio (exit per uscire):\n\t");
+        }
+        if (FD_ISSET(sock_fd, &allFDs))
+        {
+            // * socket case
+
+            int bytesread = read(sock_fd, buf, BUFFER_SIZE);
+
+            // * check if server disconnect
+            if (bytesread <= 0)
             {
-                printf("Confermi di voler uscire?(y/n)\n");
-                if (fgets(buff, BUFFER_SIZE, stdin) == NULL)
+                // error handling
+                if (bytesread == -1)
                 {
-                    perror("Errore nella lettura dell'input");
+                    perror("read failed");
+                    close(sock_fd);
                     exit(EXIT_FAILURE);
                 }
-                if (buff[0] == 'y')
+                else if (bytesread == 0)
                 {
-                    break;
+                    printf("Server disconnected\n");
+                    close(sock_fd);
+                    exit(EXIT_SUCCESS);
                 }
             }
-            else
-            {
-                // Sending message
-                write(server_fd, buff, strlen(buff));
-                printf("Inserire messaggio (exit per uscire):\n");
-            }
-        }
-        else if (FD_ISSET(server_fd, &readfds) != 0) // Case: server send message on socket
-        {
-            printf("messaggio dal server\n");
-            // Recive answere
-            int bytesread = read(server_fd, buff, BUFFER_SIZE);
-            if (bytesread < 0) {
-                perror("read");
-                exit(EXIT_FAILURE);
-            }
-            printf("Server ha inviato:\t%s\n", buff);
-            printf("Inserire messaggio (exit per uscire):\n");
+
+            buf[bytesread] = '\0';
+            printf("Server: %s\n", buf);
         }
     }
-    // Closing socket
-    close(server_fd);
+
+    close(sock_fd);
 
     return 0;
+}
+
+void clear_input()
+{
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF)
+    {
+    }
+    clearerr(stdin);
+}
+
+char *read_input()
+{
+    char *buf = (char *)malloc(BUFFER_SIZE * sizeof(char));
+    // error handling
+    if (fgets(buf, BUFFER_SIZE, stdin) == NULL)
+    {
+        perror("fgets failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // * check if user want to exit
+    if (strcmp(buf, "exit\n") == 0)
+    {
+        printf("confermi di voler uscire (y/n)\n");
+        // error handling
+        if (fgets(buf, BUFFER_SIZE, stdin) == NULL)
+        {
+            perror("fgets failed");
+            exit(EXIT_FAILURE);
+        }
+        if (strcmp(buf, "y\n") == 0)
+        {
+            printf("exit...\n");
+            exit(EXIT_SUCCESS);
+        }
+    }
+
+    clear_input();
+
+    return buf;
 }

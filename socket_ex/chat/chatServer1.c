@@ -5,185 +5,154 @@
 
 // Variante 1: implementare il server single thread
 
-// TODO - problemi nell'uso della socket condivisa
-// ! il server blocca il ciclo rispetto al primo client
-// ! che si connette: riceve la connessione e i messaggi
-// ! degli altri ma li stampa solo dopo un'istruzione proveniente dal primo client
-
-// TODO - aggiungere segnale di terminazione per il client
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <errno.h>
-#include <sys/select.h>
-#include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/select.h>
+#include <errno.h>
+#include <unistd.h>
+#include <stdbool.h>
 #include <string.h>
 
-#define BUFFER_SIZE 100
-#define MAX_CLIENTS 10
-#define PORT 2222
 #define IP_ADDRESS "192.168.111.47"
-
-// TODO - tempo testing functions
-void tempSetSize (fd_set *set, int max_fd) {
-    int count = 0;
-    for (int i = 0; i < max_fd; i++) {
-        if (FD_ISSET(i, set)) {
-            count++;
-        }
-    }
-    printf("Number of clients: %d\n", count);
-    return;
-}
-
-void tempFunc()
-{
-    printf("entrato in tempfunc\n");
-}
+#define PORT 2222
+#define MAX_CLIENTS 100
+#define BUFFER_SIZE (1024 * sizeof(char))
 
 int main()
 {
-    int server_fd, client_fd, bytesread;
-    struct sockaddr_in server_addr, client_addr;
-    socklen_t addrlen = sizeof(client_addr);
-    char buffer[BUFFER_SIZE];
-
-    // Creating socket file descriptor
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    // * socket creation
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    // error handling
+    if (server_fd == -1)
     {
-        perror("socket");
+        perror("socket failed");
         exit(EXIT_FAILURE);
     }
 
-    // TODO - temp
-    printf("\tserver_fd = %d\n", server_fd);
+    // * build ds for socket fd
+    struct sockaddr_in server_address;
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(PORT);
+    server_address.sin_addr.s_addr = inet_addr(IP_ADDRESS);
 
-    // AF_INET to run both client and server on the same machine
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(PORT);
-    server_addr.sin_addr.s_addr = inet_addr(IP_ADDRESS);
-
-    // Bind the socket with the server address
-    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    // * bind socket
+    // error handling
+    if (bind(server_fd, (struct sockaddr *)&server_address, sizeof(server_address)) == -1)
     {
-        perror("bind");
+        perror("bind failed");
         exit(EXIT_FAILURE);
     }
 
-    // TODO - temp
-    printf("\t(binding)server_fd = %d\n", server_fd);
-
-    // Listen to the socket, with #MAX_CLIENT in the waiting queue
-    if (listen(server_fd, MAX_CLIENTS) < 0)
+    // * socket listen
+    // error handling
+    if (listen(server_fd, MAX_CLIENTS) == -1)
     {
-        perror("listen");
+        perror("listen failed");
         exit(EXIT_FAILURE);
     }
 
-    // TODO - temp
-    printf("\t(listening)server_fd = %d\n", server_fd);
+    // * build fd set
+    fd_set allFDs, readfds;
+    FD_ZERO(&allFDs);
+    FD_SET(server_fd, &allFDs);
+    int fdMax = server_fd;
 
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(server_fd, &readfds);
-    int max_fd = server_fd;
-
-    // TODO - temp
-    printf("\t(fd set creation)server_fd = %d\n", server_fd);
-
-    // Open the server, waiting for a client to connect
+    // * main cycle
     while (1)
     {
-        // TODO - temp test
-        printf("\t\tinizio while\n");
-        // TODO - temp test
-        tempSetSize(&readfds, max_fd);
+        // * fd set backup
+        readfds = allFDs;
 
-        if (select(max_fd + 1, &readfds, NULL, NULL, NULL) == -1)
+        // * select - wait for activiy
+        // error handling
+        if (select(fdMax + 1, &readfds, NULL, NULL, NULL) == -1)
         {
-            perror("select(tempfds)");
+            perror("select failed");
             exit(EXIT_FAILURE);
         }
 
-        for (int i = 0; i <= max_fd; i++)
+        // * cycle on FDs
+        for (int i = 0; i <= fdMax; i++)
         {
-            // TODO - temp test
-            printf("\t\tinizio for (%d of %d)\n", i, max_fd);
-            if (FD_ISSET(i, &readfds)) // chek if file descriptor "i" is in the set "readfds"
+            if (FD_ISSET(i, &readfds))
             {
-                if (i == server_fd) // caso server
+                // * server case
+                if (i == server_fd)
                 {
-                    // TODO - temp test
-                    printf("\n\tentrato nel caso server (fd: %d)\t-\t", i);
-                    // Take connection
-                    if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addrlen)) < 0)
+                    // * accept new client
+                    int client_fd = accept(server_fd, NULL, NULL);
+                    // error handling
+                    if (client_fd == -1)
                     {
-                        perror("accept");
+                        perror("accept failed");
                         exit(EXIT_FAILURE);
                     }
 
-                    // TODO - temp test
-                    printf("Client connesso, client_fd = %d, max_fd = %d\n", client_fd, max_fd);
-                    FD_SET(client_fd, &readfds);
-                    if (client_fd > max_fd)
+                    // * add client to set and update fdMax
+                    FD_SET(client_fd, &allFDs);
+                    if (client_fd > fdMax)
                     {
-                        printf("\t\tcambiato max_fd  %d -> a -> %d\n", max_fd, client_fd);
-                        max_fd = client_fd;
+                        fdMax = client_fd;
                     }
-                    max_fd = (client_fd > max_fd) ? client_fd : max_fd;
                 }
-                else // caso client
+                else
                 {
-                    // TODO - temp test
-                    printf("\n\tentrato nel caso client (fd: %d)\t-\t", i);
-                    char buff[BUFFER_SIZE];
-                    int bytesread = read(i, buff, BUFFER_SIZE);
+                    // * client case
+                    char *buf = (char *)malloc(BUFFER_SIZE * sizeof(char));
+                    // * read from client
+                    int bytesread = read(i, buf, BUFFER_SIZE);
                     if (bytesread <= 0)
                     {
                         if (bytesread == 0)
                         {
-                            printf("Client disconnesso\n");
-                            close(i);
-                            if (i == max_fd)
-                            {
-                                do
-                                {
-                                    max_fd--;
-                                } while (!FD_ISSET(max_fd, &readfds));
-                            }
-                            FD_CLR(i, &readfds);
+                            printf("\tClient disconnected (fd: %d)\n", i);
                         }
-                        else
+                        else if (bytesread == -1)
                         {
-                            perror("read");
+                            // error handling
+                            perror("read failed");
                             exit(EXIT_FAILURE);
+                        }
+                        // * remove client from the set and update fdMax
+                        close(i);
+                        FD_CLR(i, &allFDs);
+                        if (i == fdMax)
+                        {
+                            do
+                            {
+                                fdMax--;
+                            } while (!FD_ISSET(fdMax, &allFDs));
                         }
                     }
                     else
                     {
-                        printf("Il cliente ha inviato: %s\n", buff);
-                        tempFunc();
-                        // TODO - qui il server deve mandare il messaggio di quel client a tutti gli altri client
-                        for (int j = 0; j <= max_fd; j++)
+                        printf("\t(sender fd: %d) Read - %s\n", i, buf);
+
+                        // * insert end-char in the string
+                        buf[bytesread] = '\0';
+
+                        // * send msg to the other client
+                        for (int j = 0; j <= fdMax; j++)
                         {
-                            if (FD_ISSET(j, &readfds))
+                            if (FD_ISSET(j, &allFDs) && j != i && j != server_fd)
                             {
-                                if (j != server_fd && j != i)
+                                // doesn't send msg to server and to sender client
+                                // error handling
+                                if (write(j, buf, bytesread) == -1)
                                 {
-                                    write(j, buff, bytesread);
+                                    perror("write failed");
+                                    exit(EXIT_FAILURE);
                                 }
                             }
                         }
-                        // TODO - temp test
-                        printf("uscito dal for di scrittura\n");
                     }
                 }
             }
         }
     }
+    close(server_fd);
 
     return 0;
 }
