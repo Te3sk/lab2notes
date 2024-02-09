@@ -18,7 +18,7 @@
 #include <arpa/inet.h>
 
 #define IP_ADDRESS "192.168.111.47" // pax
-// #define IP_ADDRESS "192.168.1.243" // homa
+// #define IP_ADDRESS "192.168.1.243" // home
 #define PORT 2222
 #define MAX_CLIENTS 100
 #define BUFFER_SIZE (1024 * sizeof(char))
