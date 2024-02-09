@@ -51,6 +51,9 @@ void queue_push(queue_t *, int);
 int queue_pop(queue_t *);
 void *worker(void *);
 
+// TODO - testing func
+void temp_fd_pres(fd_set, int, int);
+
 int main(int argc, char *argv[])
 {
     // * check input arguments
@@ -67,20 +70,14 @@ int main(int argc, char *argv[])
 
     // * get number of thread worker
     int num_threads = atoi(argv[1]);
-    // TODO - temp test
-    printf("numero di thread worker: %d\n", num_threads);
 
     // * build the queue
     queue_t queue;
     queue_init(&queue);
 
-    // TODO - temp test
-    printf("queue built\n");
 
     // * create the socket
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    // TODO - temp test
-    printf("socket created (fd:%d)\n", server_fd);
 
     // * build data structure for server fd
     struct sockaddr_in server_addr;
@@ -88,8 +85,6 @@ int main(int argc, char *argv[])
     server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = inet_addr(IP_ADDRESS);
 
-    // TODO - temp test
-    printf("data structure for server fd built\n");
 
     // * bind the socket to the address
     // error handling
@@ -99,8 +94,6 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // TODO - temp test
-    printf("binding done\n");
 
     // error handling
     if (listen(server_fd, MAX_CLIENTS))
@@ -108,9 +101,6 @@ int main(int argc, char *argv[])
         perror("listen failed");
         exit(EXIT_FAILURE);
     }
-
-    // TODO - temp test
-    printf("listening done\n");
 
     // * build the set of fd
     fd_set allFDs, readFDs;
@@ -135,8 +125,6 @@ int main(int argc, char *argv[])
     // * main loop
     while (1)
     {
-        // TODO - temp test
-        printf("---------- while ite ----------\n");
         int clientFD = accept(server_fd, NULL, NULL);
         // error handling
         if (clientFD == -1)
@@ -145,19 +133,35 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
 
-        // TODO - temp test
-        printf("\tNuovo cliente connesso (fd:%d)\n", clientFD);
         FD_SET(clientFD, &allFDs);
         if (clientFD > fdMax)
         {
-            // TODO - temp test
-            printf("\tupdating fdMax (%d -> %d)\n", fdMax, clientFD);
             fdMax = clientFD;
         }
         queue_push(&queue, clientFD);
     }
 
     return 0;
+}
+
+void temp_fd_pres(fd_set allFDs, int fdMax, int server_fd)
+{
+    printf("\tnumber of present fd: %d\n", fdMax);
+    for (int i = 0; i <= fdMax; i++)
+    {
+        if (FD_ISSET(i, &allFDs))
+        {
+            printf("\t\t- %d", i);
+            if (i == server_fd)
+            {
+                printf(" server\n");
+            }
+            else
+            {
+                printf(" client\n");
+            }
+        }
+    }
 }
 
 void *worker(void *arg)
@@ -170,6 +174,7 @@ void *worker(void *arg)
     pthread_mutex_t lock = queue->lock;
     pthread_cond_t not_empty = queue->not_empty;
     pthread_cond_t not_full = queue->not_full;
+
 
     char buffer[BUFFER_SIZE];
 
@@ -208,13 +213,11 @@ void *worker(void *arg)
             pthread_mutex_lock(&lock);
 
             // * send msg to other clients
-            for (int i = 0; i < *fdMax; i++)
+            for (int i = 0; i < (*fdMax) + 1; i++)
             {
                 if (FD_ISSET(i, allFDs) && i != clientFD && i != serverFD)
                 {
                     // error handling
-                    // TODO - temp test
-                    printf("\twriting to client (fd: %d)\n", i);
                     if (write(i, buffer, bytesread) == -1)
                     {
                         perror("write failed");
