@@ -32,7 +32,8 @@
 #include <arpa/inet.h>
 
 #define PORT 2222
-#define IP_ADDRESS "192.168.111.47"
+#define IP_ADDRESS "192.168.111.47" // pax
+// #define IP_ADDRESS "192.168.1.243" // home
 #define BUFFER_SIZE (1024) * sizeof(char)
 
 void clear_input();
@@ -88,6 +89,9 @@ int main()
             // * std input case
 
             buf = read_input();
+
+            // TODO - temp test
+            printf("send \'%s\' to the server\n", buf);
 
             // error handling
             if (write(sock_fd, buf, strlen(buf)) == -1)
@@ -171,6 +175,15 @@ char *read_input()
     }
 
     clear_input();
+
+    if (buf[strlen(buf) - 1] == '\n')
+    {
+        // printf("ultimo char = \\n,\t cambiato con \\0\n");
+        buf[strlen(buf) - 1] = '\0';
+    } else {
+        // printf("ultmimo carattere = %c,\taggiunto \\0\n", buf[strlen(buf) - 1]);
+        buf[strlen(buf)] = '\0';
+    }
 
     return buf;
 }

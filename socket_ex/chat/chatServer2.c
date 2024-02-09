@@ -17,7 +17,8 @@
 #include <errno.h>
 #include <arpa/inet.h>
 
-#define IP_ADDRESS "192.168.111.47"
+#define IP_ADDRESS "192.168.111.47" // pax
+// #define IP_ADDRESS "192.168.1.243" // homa
 #define PORT 2222
 #define MAX_CLIENTS 100
 #define BUFFER_SIZE (1024 * sizeof(char))
@@ -25,8 +26,10 @@
 typedef struct WorkerArgs
 {
     int clientFD;
+    int server_fd;
     fd_set *allFDs;
     int *fdMax;
+    pthread_mutex_t *lock;
 } WorkerArgs;
 
 void *worker(void *);
@@ -64,6 +67,8 @@ int main()
     FD_SET(server_fd, &allFDs);
     int fdMax = server_fd;
 
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
     // * accept loop
     while (1)
     {
@@ -75,12 +80,9 @@ int main()
             exit(EXIT_FAILURE);
         }
 
-        // ? print accept succesfull ?
-
         FD_SET(clientFD, &allFDs);
         if (clientFD > fdMax)
         {
-            // ? print fdMax updating ?
             fdMax = clientFD;
         }
 
@@ -89,6 +91,8 @@ int main()
         args->clientFD = clientFD;
         args->fdMax = &fdMax;
         args->allFDs = &allFDs;
+        args->lock = &lock;
+        args->server_fd = server_fd;
 
         // error handling
         if (pthread_create(&tid, NULL, worker, (void *)args) != 0)
@@ -103,10 +107,11 @@ int main()
 
 void *worker(void *arg)
 {
-    // struct WorkerArgs *args = (struct WorkerArgs*)arg;
     int clientFD = ((WorkerArgs *)arg)->clientFD;
     int *fdMax = ((WorkerArgs *)arg)->fdMax;
     fd_set *allFDs = ((WorkerArgs *)arg)->allFDs;
+    pthread_mutex_t *lock = ((WorkerArgs *)arg)->lock;
+    int server_fd = ((WorkerArgs *)arg)->server_fd;
 
     char buf[BUFFER_SIZE];
     int bytesread;
@@ -117,16 +122,15 @@ void *worker(void *arg)
         bytesread = read(clientFD, buf, BUFFER_SIZE);
         if (bytesread <= 0)
         {
+            pthread_mutex_lock(lock);
             // error handling
             if (bytesread == -1)
             {
                 perror("read failed");
-                exit(EXIT_FAILURE);
             }
             else if (bytesread == 0)
             {
-                printf("Server disconnect\n");
-                break;
+                printf("client disconnect\n");
             }
 
             close(clientFD);
@@ -135,20 +139,22 @@ void *worker(void *arg)
             {
                 do
                 {
-                    *fdMax--;
+                    (*fdMax)--;
                 } while (!FD_ISSET(*fdMax, allFDs));
             }
+            pthread_mutex_unlock(lock);
             break;
         }
         else
         {
             buf[bytesread] = '\0';
-            // ? print the client write something ?
 
+            pthread_mutex_lock(lock);
             // * send msg to other clients
+
             for (int i = 0; i <= *fdMax; i++)
             {
-                if (FD_ISSET(i, allFDs) && i != clientFD)
+                if (FD_ISSET(i, allFDs) && i != server_fd && i != clientFD)
                 {
                     // error handling
                     if (write(i, buf, bytesread) == -1)
@@ -158,6 +164,7 @@ void *worker(void *arg)
                     }
                 }
             }
+            pthread_mutex_unlock(lock);
         }
     }
 
