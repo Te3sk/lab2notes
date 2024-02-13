@@ -13,9 +13,19 @@ int main()
 {
     BibData *temp = createBibData("bibData/bib1.txt");
 
-    int* temp_index = searchRecord(temp, "Melis", 'a');
+    int* temp_index = searchRecord(temp, "Fulgaro", 'a');
 
-    printf("trovati %d risultati\n", sizeof(temp_index)/sizeof(int));
+    if(temp_index == NULL){
+        // error handling
+        perror("search Record failed");
+        exit(EXIT_FAILURE);
+    }
+
+    int i = 0;
+    while(temp_index[i] != -1) {
+        printf("un risultato in pos %d\n", temp_index[i]);
+        i++;
+    }
 
     // // // * socket creation
     // // int server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
