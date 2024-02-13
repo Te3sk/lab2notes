@@ -11,7 +11,7 @@
 
 int main()
 {
-    BibData *temp = createBibData("bibData/bib1.txt");
+    // // BibData *temp = createBibData("bibData/bib1.txt");
 
     // int* temp_index = searchRecord(temp, "Fulgaro", 'a');
 

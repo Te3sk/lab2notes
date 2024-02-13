@@ -114,7 +114,6 @@ BibData *createBibData(char *path)
     // go back to the beginning of the file
     rewind(fp);
 
-
     // allocate memory for the book array
     bib->book = malloc(bib->size * sizeof(char *));
     if (bib->book == NULL)
@@ -124,23 +123,75 @@ BibData *createBibData(char *path)
         exit(EXIT_FAILURE);
     }
 
-    for (int i = 0; i < bib->size; i++) {
-        bib->book[i] = malloc(MAX_LENGTH * sizeof(char));
-        if(bib->book[i] == NULL){
-            // error handling
-            perror(THIS_PATH "%s/createBibData - bib->book[i] allocation failed");
-            exit(EXIT_FAILURE);
-        }
-    }
+    char *buffer = malloc(MAX_LENGTH * sizeof(char));
+    int i = 0;
 
-    // @ temp test
-    char* buffer = malloc(MAX_LENGTH * sizeof(char));
+    
 
-    while (fgets(buffer, MAX_LENGTH, fp) != NULL) {
-        printf("%s\n", buffer);
+    bib->book[0] = (char *)malloc((MAX_LENGTH + 1) * sizeof(char));
+    while(fgets(bib->book[0], MAX_LENGTH, fp) != NULL){
+        printf("%s\n", bib->book[i]);
+        i++;
     }
 
 
+    // while (fgets(buffer, MAX_LENGTH, fp) != NULL)
+    // {
+    //     buffer[strlen(buffer) - 1] = '\0'; // remove the newline character
+    //     printf("%s\n#######\n", buffer);
+    //     bib->book[i] = malloc((strlen(buffer) + 1) * sizeof(char));
+    //     strcpy(bib->book[i], buffer);
+    //     printf("%s\n------------------------\n", bib->book[i]);
+    //     printf("buffer %s bib->book[%d] | buffer size: %d vs bib->book[%d] size: %d\nbuffer endstr in pos: %d vs bib->book[%d] endstr in pos: %d\n", (buffer == bib->book[i] ? "==" : "!="), i, strlen(buffer), i, strlen(bib->book[i]), (strchr(buffer, '\0') - buffer), i, (strchr(bib->book[i], '\0') - bib->book[i]));
+    //     printf("size of buffer : %d | size of bib->book[%d] : %d\n", sizeof(buffer), i, sizeof(bib->book[i]));
+    //     printf("--------------------------------------------------------------------\n");
+    //     // for (int j = 0; j < strlen(buffer); j++){
+    //     //     printf("\t\t%c\t|\t%c\t|t\t%c\n", buffer[j], bib->book[i][j], bufcpy[j]);
+    //     // }
+
+    //     i++;
+    // }
+
+    // // for (int i = 0; i < bib->size; i++)
+    // // {
+    // //     bib->book[i] = malloc(MAX_LENGTH * sizeof(char));
+    // //     if (bib->book[i] == NULL)
+    // //     {
+    // //         // error handling
+    // //         perror(THIS_PATH "/createBibData - bib->book[i] allocation failed");
+    // //         exit(EXIT_FAILURE);
+    // //     }
+
+    // //     printf("iterazione %d\n\t- ");
+    // //     fgets(bib->book[i], MAX_LENGTH, fp);
+    // //     printf("%s\n", bib->book[i]);
+
+    // // }
+
+    // char *buffer = malloc(MAX_LENGTH * sizeof(char));
+
+    // bib->book[0] = (char *)malloc(MAX_LENGTH * sizeof(char));
+
+    // fgets(bib->book[0], MAX_LENGTH, fp);
+    // printf("%s\n\n");
+
+    // while(fgets(buffer, MAX_LENGTH, fp) != NULL) {
+    //     printf("%s\n", buffer);
+    // }
+
+    // while (fgets(bib->book[i], MAX_LENGTH, fp) != NULL)
+    // {
+    //     // remove the new line character
+    //     bib->book[i][strlen(bib->book[i])] = '\0';
+    //     i++;
+    // }
+
+    // // // @ temp test
+    // char* buffer = malloc(MAX_LENGTH * sizeof(char));
+
+    // while (fgets(buffer, MAX_LENGTH, fp) != NULL) {
+    //     printf("%s\n", buffer);
+    // }
 
     // // read the file line by line
     // int i = 0;
