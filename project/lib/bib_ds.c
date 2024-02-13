@@ -2,8 +2,9 @@
 
 #define MAX_LENGTH 500
 #define MAX_FIELD_LENGTH 30
+#define THIS_PATH "lib/bib_ds.c/"
 
-int fileFormatCheck(char *path)
+FILE *fileFormatCheck(char *path)
 {
     /*
     # description
@@ -12,12 +13,12 @@ int fileFormatCheck(char *path)
         'path' is the path of the txt file
     # return value
         If the file is totally right (not empty and right format) return 1
-        TODO - if the file is empty return 0
-        TODO - if the file is of the wrong format return -1
+        If the file is empty or of the wrong format return NULL
     */
 
     // open the file
     FILE *fp = fopen(path, "rb");
+    // @ temp test
     if (fp == NULL)
     {
         // error handling
@@ -30,11 +31,46 @@ int fileFormatCheck(char *path)
     if (buffer == NULL)
     {
         // error handling
-        perror("lib/bib_ds.c/fileFormatCheck - buffer allocation failed");
+        perror(THIS_PATH "/fileFormatCheck - buffer allocation failed");
         exit(EXIT_FAILURE);
     }
-    bool isEmpty = true;
-    bool rightFormat = true;
+    bool notEmpty = false;
+    bool rightFormat = false;
+
+    while (fgets(buffer, MAX_LENGTH, fp) != NULL)
+    {
+        if (strlen(buffer) == 0)
+        {
+            continue;
+        }
+        buffer[strlen(buffer) - 1] = '\0';
+        notEmpty = true;
+        char *token = strtok(buffer, ";");
+
+        while (token != NULL)
+        {
+            int i = 0;
+            // delete spaces char
+            while (token[0] == ' ')
+            {
+                memmove(token, token + 1, strlen(token));
+            }
+
+            if (strlen(token) != 0)
+            {
+                token[strlen(token) - 1] = '\0';
+
+                if ((strstr(token, ":") == NULL) || ((strchr(token, ',')) && ((strchr(token, ',') - token) < (strchr(token, ':') - token))))
+                {
+                    printf("wrong file format\n");
+                    return NULL;
+                }
+            }
+            token = strtok(NULL, ";");
+        }
+    }
+
+    return fp;
 }
 
 BibData *createBibData(char *path)
@@ -47,20 +83,21 @@ BibData *createBibData(char *path)
     # return value
         On success return a pointer to a BibData variable (char** data + int size)
         filled with the data
-        TODO - if the file format is wrong return ...
-        TODO - if the file is empty return ...
+        if the file is of the wrong format or empty return NULL
     */
 
     // create a new BibData object
     BibData *bib = malloc(sizeof(BibData));
 
     // open the file
-    FILE *fp = fopen(path, "rb");
+    // FILE *fp = fopen(path, "rb");
+    FILE *fp = fileFormatCheck(path);
+
     if (fp == NULL)
     {
         // error handling
-        perror("lib/bib_ds.c/createBibData - fopen failed");
-        exit(EXIT_FAILURE);
+        printf("wrong file format\n");
+        return NULL;
     }
 
     // get the number of lines in the file
@@ -77,36 +114,53 @@ BibData *createBibData(char *path)
     // go back to the beginning of the file
     rewind(fp);
 
+
     // allocate memory for the book array
     bib->book = malloc(bib->size * sizeof(char *));
     if (bib->book == NULL)
     {
         // error handling
-        perror("lib/bib_ds.c/createBibData - bib->book allocation failed");
+        perror(THIS_PATH "/createBibData - bib->book allocation failed");
         exit(EXIT_FAILURE);
     }
 
-    // allocate memory for each line of the book array
-    for (int i = 0; i < bib->size; i++)
-    {
+    for (int i = 0; i < bib->size; i++) {
         bib->book[i] = malloc(MAX_LENGTH * sizeof(char));
-        if (bib->book[i] == NULL)
-        {
+        if(bib->book[i] == NULL){
             // error handling
-            perror("lib/bib_ds.c/createBibData - bib->book[x] allocation failed");
+            perror(THIS_PATH "%s/createBibData - bib->book[i] allocation failed");
             exit(EXIT_FAILURE);
         }
     }
 
-    // read the file line by line
-    int i = 0;
-    while (fgets(bib->book[i], MAX_LENGTH, fp) != NULL)
-    {
-        // remove the new line character
-        bib->book[i][strlen(bib->book[i])] = '\0';
-        i++;
+    // @ temp test
+    char* buffer = malloc(MAX_LENGTH * sizeof(char));
+
+    while (fgets(buffer, MAX_LENGTH, fp) != NULL) {
+        printf("%s\n", buffer);
     }
-    fclose(fp);
+
+
+
+    // // read the file line by line
+    // int i = 0;
+    // while (fgets(buffer, MAX_LENGTH, fp) != NULL)
+    // {
+    //     // @ temp test
+    //     // remove the new line character
+    //     buffer[strlen(buffer)-1] = '\0';
+    //     printf("######\n%s\n", buffer);
+    //     bib->book[i] = (char*)malloc(sizeof(buffer) + 1);
+    //     if(bib->book[i] == NULL){
+    //         // error handling
+    //         perror("lib/bib_ds.c/createBibData - bib->book[i] allocation failed");
+    //         exit(EXIT_FAILURE);
+    //     }
+    //     strcpy(bib->book[i], buffer);
+    //     printf("----\n%s\n\n", bib->book[i]);
+    //     i++;
+    // }
+    // fclose(fp);
 
     // return the BibData object
     return bib;
@@ -141,7 +195,7 @@ int *searchRecord(BibData *bib, char *keyword, char field_code)
 
     // search for the keyword in each record and return the number of occurrences
     char *field = (char *)malloc(sizeof(char) * MAX_FIELD_LENGTH);
-    if (field == -1)
+    if (field == NULL)
     {
         // error handling
         perror("lib/bib_ds.c/searchRecord - field allocation failed");
@@ -203,7 +257,8 @@ int *searchRecord(BibData *bib, char *keyword, char field_code)
     {
         printf("No match in data set with %s : %s\n", field, keyword);
         res = (int *)malloc(sizeof(int));
-        if(res == NULL){
+        if (res == NULL)
+        {
             // error handling
             perror("lib/bib_ds.c/searchRecord - res allocation failed");
             exit(EXIT_FAILURE);

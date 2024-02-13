@@ -13,4 +13,4 @@ BibData *createBibData(char *path);
 
 int *searchRecord(BibData *bib, char *keyword, char field_code);
 
-int fileFormatCheck(char *path);
+FILE *fileFormatCheck(char *path);
