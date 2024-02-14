@@ -8,9 +8,16 @@
 #include "lib/bib_ds.h"
 
 #define SOCKET_PATH "./socket/temp_sock"
+#define THIS_PATH "server.c/"
 #define MAX_CLIENTS 10 // temp, it must be 40
-// @ temp test
+#define MAX_LENGTH 500 // TODO - understand how many bytes give
+// TODO - temp, W have to be insert by user in program launch
 #define W 10
+
+typedef struct WorkerArgs {
+    Queue *q;
+    BibData *bib;
+} WorkerArgs;
 
 void *worker(void *arg);
 
@@ -54,6 +61,12 @@ int main()
     // @ temp test
     printf("Il server è pronto e in ascolto (fd: %d)\n", server_socket);
 
+    // TODO - queue init
+    Queue *q;
+    init(q);
+    // @ temp test
+    printf("queue initalized\n");
+
     // TODO - thread creation
 
 
@@ -80,5 +93,33 @@ int main()
 }
 
 void *worker(void *arg) {
+    Queue *queue = ((WorkerArgs *)arg)->q;
+    BibData *bib = ((WorkerArgs *)arg)->bib;
+    // @ temp test
+    printf("\tenter in worker func\n");
+    
+    int clientFD = pop(queue);
+    // @ temp test
+    printf("\tclient fd = %d\n", clientFD);
+
+    char *buffer = (char*)malloc(MAX_LENGTH * sizeof(char));
+    int bytesread = read(clientFD, buffer, MAX_LENGTH);
+    if(bytesread == -1){
+        // error handling
+        perror(THIS_PATH "worker - read failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // @ temp test
+    printf("\tclient send: %s\n", buffer);
+
+    // TODO - waiting for lib/bib_ds.c/requestFormatCheck dev
+    // if(requestFormatCheck(buffer) == comparig value){
+    //     // error handling
+    //     perror("worker - wrong request format");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    
 
 }

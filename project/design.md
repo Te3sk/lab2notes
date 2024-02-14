@@ -16,6 +16,16 @@
     3. recording new **record file**
     4. **close socket**
 
+# Client
+1. **Socket** creation
+2. check **input format**
+3. **parse request**
+4. **send request**
+
+# Formato request
+- numero di parametri
+- parametri come doppio array, uno per il field code e uno per il valore (associati dall'indice)
+- bool (o simile) per indicare se è richiesto il prestito o no
 
 # Nomi campo possibili
 1. autore - a

@@ -1,19 +1,31 @@
 #include "queue.h"
 
+/*
+### Description
+    Initialization of a queue
+### Parameters
+    - `Queue *q` is a pointer to a Queue data structure (defined in lib/queue.h)
+*/
 void init(Queue *q)
 {
     // initialize the queue
     q->head = q->tail = NULL;
     // initialize mutex and condition variable
-    pthread_mutex_init(&q->mutex, NULL);
-    pthread_cond_init(&q->cond, NULL);
+    pthread_mutex_init(&(q->mutex), NULL);
+    pthread_cond_init(&(q->notEmpty), NULL);
 }
 
+/*
+### Description
+    Destroys a queue
+### Parameters
+    - `Queue *q` is a pointer to a Queue data structure (defined in lib/queue.h)
+*/
 void destroy(Queue *q)
 {
     // destroy the mutex and condition variable
-    pthread_mutex_destroy(&q->mutex);
-    pthread_cond_destroy(&q->cond);
+    pthread_mutex_destroy(&(q->mutex));
+    pthread_cond_destroy(&(q->notEmpty));
     // empty the queue
     while (q->head)
     {
@@ -23,6 +35,13 @@ void destroy(Queue *q)
     q->tail = NULL;
 }
 
+/*
+### Description
+    Push (insert) value of `data` in the queue
+### Parameters
+    - `void *data` is a pointer to the value to insert
+    - `Queue *q` is the queue in which the func insert the value
+*/
 void push(void *data, Queue *q)
 {
     // create a new node
@@ -47,20 +66,28 @@ void push(void *data, Queue *q)
     q->tail = n;
 
     // signal the condition variable
-    pthread_cond_signal(&q->cond);
+    pthread_cond_signal(&q->notEmpty);
     // unlock the mutex
     pthread_mutex_unlock(&q->mutex);
 }
 
+/*
+### Description
+    Remove the first item from the queue and give it to caller
+### Parameters
+    - `Queue *q` is the queue from which the func remove the item
+### Return value
+    return `data`, the first one item in the queue (head), the type depends on which data have been insert
+*/
 void *pop(Queue *q)
 {
-
     // lock the mutex
     pthread_mutex_lock(&q->mutex);
     // check if the queue is empty
     while (q->head == NULL)
-        pthread_cond_wait(&q->cond, &q->mutex);
-
+    {
+        pthread_cond_wait(&(q->notEmpty), &(q->mutex));
+    }
     // store the head node
     Node *n = q->head;
 

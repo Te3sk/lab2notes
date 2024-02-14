@@ -5,7 +5,11 @@
 #include <time.h>
 #include <signal.h>
 
-// Define a node
+/*
+### Field
+- `void *data`: *generic C pointer*, it can be cast to all pointer types: by caller: func(&variable), by function: type1 var = (type1 *)var
+- `struct n *next`: point to the next item in te queue
+*/
 typedef struct n
 {
     void *data;
@@ -21,7 +25,7 @@ typedef struct
     // Lock for the queue
     pthread_mutex_t mutex;
     // Condition variable for the queue
-    pthread_cond_t cond;
+    pthread_cond_t notEmpty;
 
 } Queue;
 
