@@ -11,7 +11,7 @@ typedef struct n
     void *data;
     struct n *next;
 } Node;
-
+ 
 // Define a queue
 typedef struct
 {
