@@ -24,7 +24,7 @@
 
 # Formato request
 - numero di parametri
-- parametri come doppio array, uno per il field code e uno per il valore (associati dall'indice)
+- parametri come stringa del tipo "campo:valore;campo:valore;...;p" (campo p presente se si chiede il prestito)
 - bool (o simile) per indicare se è richiesto il prestito o no
 
 # Nomi campo possibili

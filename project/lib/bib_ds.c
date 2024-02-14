@@ -1,6 +1,6 @@
 #include "bib_ds.h"
 
-#define MAX_LENGTH 500 // TODO - understand how many bytes give
+#define MAX_LENGTH 500      // TODO - understand how many bytes give
 #define MAX_FIELD_LENGTH 30 // TODO - understand how many bytes give
 #define THIS_PATH "lib/bib_ds.c/"
 
@@ -240,6 +240,7 @@ int *searchRecord(BibData *bib, char *keyword, char field_code)
     return res;
 }
 
-int *requestFormatCheck(char *request, char *format){
-    // TODO - decide what format a request must have
-}
+// int *requestFormatCheck(char *request, char *format)
+// {
+//     // TODO - decide what format a request must have
+// }
