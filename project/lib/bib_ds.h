@@ -4,6 +4,8 @@
 #include <ctype.h>
 #include <stdbool.h>
 
+#include "pars.h"
+
 /*
     ### Field
     - `char **book`: pointer to character pointers -> pointer to string array. It contains records (1 for position)
@@ -16,7 +18,9 @@ typedef struct {
 
 BibData *createBibData(char *path);
 
-int *searchRecord(BibData *bib, char *keyword, char field_code);
+bool recordMatch(char *record, Request *req);
+
+Response *searchRecord(BibData *bib, Request *req);
 
 FILE *fileFormatCheck(char *path);
 

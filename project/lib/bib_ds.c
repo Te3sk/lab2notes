@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "bib_ds.h"
 
 #define MAX_LENGTH 500      // TODO - understand how many bytes give
@@ -122,6 +124,57 @@ BibData *createBibData(char *path)
 
 /*
 ### Description
+    check if a single record match with a request
+### Parameters
+    - `char *record` is the single record extract from a bibData
+    - `Request *req` is the current request
+### Return value
+    return `true` if the request match the record, `false` otherwise
+*/
+bool recordMatch(char *record, Request *req)
+{
+    // @ temp test
+    printf("\tENTER IN RECORD MATCH - %s\n", record);
+    for (int i = 0; i < req->size; i++)
+    {
+        // search the field_code in the record
+        char *campo = strstr(record, req->field_codes[i]);
+        if (campo == NULL)
+        {
+            // field_code not present in the record
+            return false;
+        }
+        // @ temp test
+        printf("\t\t\tcampo: %s\n", campo);
+        // take the corrispondent value in the record
+        char *valore = strchr(campo, ':');
+        if (valore == NULL)
+        {
+            printf("%srecordMatch - wrong format of the record");
+            exit(EXIT_FAILURE);
+        }
+        // surpasses ':' char
+        valore++;
+        // @ temp test
+        printf("\t\t\tvalore:%s\t\t\tvalue: %s\n", valore, req->field_values[i]);
+
+        // @ temp test
+        printf("\nis %s ?= %s\n\n", valore, req->field_values[i]);
+        // check if the value founded is equal to the searched
+        if (strcmp(valore, req->field_values[i]) != 0)
+        {
+            // @ temp test
+            printf("\t\tFALSE\n");
+            return false;
+        }
+    }
+    // @ temp test
+    printf("\t\tTRUE\n");
+    return true;
+}
+
+/*
+### Description
     Search a record in the data structure given a keyword to search and a specific field
 ### Parameters
     bib is a pointer to a BibData data structure
@@ -130,117 +183,48 @@ BibData *createBibData(char *path)
         (a for author, t for title, e for editor, y for year, n for note,
         c for collocation, d for phisical description, p for pubblication palce)
 ### Return value
-    On research success return a pointer of an integer array containing the index
-    of found result. The array terminate with -1 (sentinel)
-    On research fail return an array with one position equal to -1
-    On fail print error message and and return NULL
+    On research success return a pointer of a Response type variable that contains matched records and how many are them
+    On research fail return NULL;
+    On fail print error message and and exit
 */
-int *searchRecord(BibData *bib, char *keyword, char field_code)
+Response *searchRecord(BibData *bib, Request *req)
 {
+    // @ temp test
+    printf("ENTER IN SEARCH RECORD\n\t");
 
-    // create a temporary array to store the results
-    int *temp_res = (int *)malloc(sizeof(int) * bib->size), count = 0;
-    if (temp_res == NULL)
+    char **match = (char **)malloc(sizeof(char *));
+    if (match == NULL)
     {
         // error handling
-        perror("lib/bib_ds.c/searchRecord - temp_res failed");
-        return NULL;
+        perror(THIS_PATH "searchRecord - match allocation failed");
+        exit(EXIT_FAILURE);
     }
+    int count = 0;
 
-    // search for the keyword in each record and return the number of occurrences
-    char *field = (char *)malloc(sizeof(char) * MAX_FIELD_LENGTH);
-    if (field == NULL)
-    {
-        // error handling
-        perror("lib/bib_ds.c/searchRecord - field allocation failed");
-        return NULL;
-    }
-
-    switch (field_code)
-    {
-    case 'a':
-        strcpy(field, "autore");
-        break;
-    case 't':
-        strcpy(field, "titolo");
-        break;
-
-    case 'e':
-        strcpy(field, "editore");
-        break;
-
-    case 'y':
-        strcpy(field, "anno");
-        break;
-
-    case 'n':
-        strcpy(field, "nota");
-        break;
-
-    case 'c':
-        strcpy(field, "collocazione");
-        break;
-
-    case 'p':
-        strcpy(field, "luogo_pubblicazione");
-        break;
-
-    case 'd':
-        strcpy(field, "descrizione_fisica");
-        break;
-
-    default:
-        printf("Invalid field code\n");
-        return NULL;
-    }
-
-    // search for the keyword in each record and return the number of occurrences
     for (int i = 0; i < bib->size; i++)
     {
-        char *searchPos = strstr(bib->book[i], keyword);
-        if (searchPos != NULL)
+        if (recordMatch(bib->book[i], req))
         {
-            temp_res[count] = i;
+            // @ temp test
+            printf("\tMATCHA\n");
+            match = (char **)realloc(match, sizeof(char *) * (count + 1));
+            match[count] = bib->book[i];
             count++;
+            // @ temp test
+            printf("\tnow count = %d\n", count);
         }
     }
 
-    int *res;
-
-    if (count == 0)
+    Response *response = (Response *)malloc(sizeof(Response));
+    if (count > 0)
     {
-        printf("No match in data set with %s : %s\n", field, keyword);
-        res = (int *)malloc(sizeof(int));
-        if (res == NULL)
-        {
-            // error handling
-            perror("lib/bib_ds.c/searchRecord - res allocation failed");
-            exit(EXIT_FAILURE);
-        }
-        res[0] = -1;
+        response->size = count;
+        response->records = match;
     }
     else
     {
-        // allocate memory for the result array
-        res = (int *)malloc((count + 1) * sizeof(int));
-
-        // copy the results from the temporary array to the result array
-        for (int i = 0; i < count; i++)
-        {
-            res[i] = temp_res[i];
-        }
-
-        res[count] = -1; // sentinel
+        response = NULL;
     }
-
-    // free the temporary array
-    free(temp_res);
-    // free the field string
-    free(field);
-    return res;
+    free(match);
+    return response;
 }
-
-// int *requestFormatCheck(char *request, char *format)
-// {
-//     // TODO - decide what format a request must have
-// }
