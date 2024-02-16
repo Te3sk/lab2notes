@@ -28,7 +28,9 @@ int main()
 {
     Request *req = (Request *)malloc(sizeof(Request));
 
-    char temp[] = "author:ciccio;p";
+    // char temp[] = "author:Luccio, Fabrizio;title:Manuale di architettura pisana;p";
+    // char temp[] = "author:Luccio, Fabrizio;title:Mathematical and Algorithmic Foundations of the Internet;p";
+    char temp[] = "author:Luccio, Fabrizio;";
 
     // @ temp test
     printf("FROM CLIENT: %s\n", temp);
@@ -42,15 +44,22 @@ int main()
         // error handling
         exit(EXIT_FAILURE);
     }
-
+    // @ temp test
+    printf("chiamato searchrecord\n");
     Response *paolo = searchRecord(bib, req);
+
+    // @ temp test
+    printf("SERVER: #record trovati %d\n", paolo->size);
 
     if (paolo != NULL)
     {
-        for (int i = 0; i < paolo->size; i++) {
+        for (int i = 0; i < paolo->size; i++)
+        {
             printf("%s\n\n", paolo->records[i]);
         }
-    } else {
+    }
+    else
+    {
         printf("Record not found\n");
     }
 

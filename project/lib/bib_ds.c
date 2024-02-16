@@ -124,8 +124,9 @@ BibData *createBibData(char *path)
 
 /*
 ### Description
-    check if a single record match with a request
+    Recorsive function check if a single record match with a request
 ### Parameters
+    - `int pos` is the position of req based on recursive iteration (at first call by another func is 0)
     - `char *record` is the single record extract from a bibData
     - `Request *req` is the current request
 ### Return value
@@ -133,44 +134,66 @@ BibData *createBibData(char *path)
 */
 bool recordMatch(char *record, Request *req)
 {
-    // @ temp test
-    printf("\tENTER IN RECORD MATCH - %s\n", record);
+    bool found = true;
+    char *recordCopy = (char *)malloc(strlen(record) * sizeof(char));
     for (int i = 0; i < req->size; i++)
     {
-        // search the field_code in the record
-        char *campo = strstr(record, req->field_codes[i]);
-        if (campo == NULL)
-        {
-            // field_code not present in the record
-            return false;
-        }
+        bool subfound = false;
+        strcpy(recordCopy, record);
         // @ temp test
-        printf("\t\t\tcampo: %s\n", campo);
-        // take the corrispondent value in the record
-        char *valore = strchr(campo, ':');
-        if (valore == NULL)
-        {
-            printf("%srecordMatch - wrong format of the record");
-            exit(EXIT_FAILURE);
-        }
-        // surpasses ':' char
-        valore++;
+        printf("%s\n", recordCopy);
+        printf("->RECORD MATCH - pos : %d, field : %s, value : %s\n", i, req->field_codes[i], req->field_values[i]);
+        // per ogni coppia campo:valore nel record
+        char *token = strtok(recordCopy, ";");
         // @ temp test
-        printf("\t\t\tvalore:%s\t\t\tvalue: %s\n", valore, req->field_values[i]);
+        printf("%d\n%s\n", (token != NULL), token);
+        while (token != NULL)
+        {
+            // confronta il campo con quello nella richiesta
+            char *field = strtok(token, ":");
+            char *value = strtok(NULL, ":");
 
-        // @ temp test
-        printf("\nis %s ?= %s\n\n", valore, req->field_values[i]);
-        // check if the value founded is equal to the searched
-        if (strcmp(valore, req->field_values[i]) != 0)
-        {
-            // @ temp test
-            printf("\t\tFALSE\n");
-            return false;
+            if (field != NULL && value != NULL)
+            {
+                while (field[0] == ' ')
+                {
+                    field++;
+                }
+                while (value[0] == ' ')
+                {
+                    value++;
+                }
+
+                // confronta i campi ignorando il case
+                if (strcasecmp(field, req->field_codes[i]) == 0 && strcasecmp(value, req->field_values[i]) == 0)
+                {
+                    // controlla se il nome del campo corrisponde alla richiesta
+                    if (strcasecmp(field, req->field_codes[i]) == 0)
+                    {
+                        // @ temp test
+                        printf("\tTRUE\n");
+                        subfound = true;
+                    }
+                }
+            }
+            token = strtok(NULL, ";");
+
+            // if (pos < (req->size - 1))
+            // {
+            //     // @ temp test
+            //     printf("pos from %d to %d\nchiamata ricorsiva\n", pos, pos + 1);
+            //     return recordMatch(pos + 1, record, req);
+            // }
+            // else
+            // {
+            //     printf("\tFALSE\n");
+            //     return false;
+            // }
         }
+
+        found = found&&subfound;
     }
-    // @ temp test
-    printf("\t\tTRUE\n");
-    return true;
+    return found;
 }
 
 /*
@@ -189,15 +212,16 @@ bool recordMatch(char *record, Request *req)
 */
 Response *searchRecord(BibData *bib, Request *req)
 {
-    // @ temp test
-    printf("ENTER IN SEARCH RECORD\n\t");
-
-    char **match = (char **)malloc(sizeof(char *));
-    if (match == NULL)
+    Response *response = (Response *)malloc(sizeof(Response));
+    if (response == NULL)
     {
-        // error handling
-        perror(THIS_PATH "searchRecord - match allocation failed");
-        exit(EXIT_FAILURE);
+        // TODO - error handling
+    }
+    response->size = 0;
+    response->records = (char **)malloc(sizeof(char *));
+    if (response->records == NULL)
+    {
+        // TODO - error handling
     }
     int count = 0;
 
@@ -206,25 +230,20 @@ Response *searchRecord(BibData *bib, Request *req)
         if (recordMatch(bib->book[i], req))
         {
             // @ temp test
-            printf("\tMATCHA\n");
-            match = (char **)realloc(match, sizeof(char *) * (count + 1));
-            match[count] = bib->book[i];
-            count++;
-            // @ temp test
-            printf("\tnow count = %d\n", count);
+            printf("TRUE\n");
+            response->records = (char **)realloc(response->records, sizeof(char *) * (response->size + 1));
+            response->records[response->size] = (char *)malloc(sizeof(char) * (strlen(bib->book[i]) + 1));
+            strcpy(response->records[response->size], bib->book[i]);
+            response->size++;
         }
     }
 
-    Response *response = (Response *)malloc(sizeof(Response));
-    if (count > 0)
+    if (response->size <= 0)
     {
-        response->size = count;
-        response->records = match;
+        free(response->records);
+        free(response);
+        return NULL;
     }
-    else
-    {
-        response = NULL;
-    }
-    free(match);
+
     return response;
 }
