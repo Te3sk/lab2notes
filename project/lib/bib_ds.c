@@ -10,7 +10,7 @@
 ### Description
     checks, line by line, if the file is empty and its format
 ### Parameters
-    'path' is the path of the txt file
+    `path` is the path of the txt file
 ### Return value
     If the file is totally right (not empty and right format) return 1
     If the file is empty or of the wrong format return NULL
@@ -76,7 +76,7 @@ FILE *fileFormatCheck(char *path)
 ### Description
     Creation of data structure give the path of a txt file
 ### Darameters
-    'path' is the path of the txt file
+    `path` is the path of the txt file
 ### Return value
     On success return a pointer to a BibData variable (char** data + int size)
     filled with the data
@@ -213,11 +213,9 @@ bool recordMatch(char *record, Request *req)
 ### Description
     Search a record in the data structure given a keyword to search and a specific field
 ### Parameters
-    bib is a pointer to a BibData data structure
-    keyword is what you want to search
-    field_code is a code for the field in which you want to search
-        (a for author, t for title, e for editor, y for year, n for note,
-        c for collocation, d for phisical description, p for pubblication palce)
+    `bib` is a pointer to a BibData data structure
+    `keyword` is what you want to search
+    `field_code` is a code for the field in which you want to search
 ### Return value
     On research success return a pointer of a Response type variable that contains matched records and how many are them
     On research fail return NULL;
@@ -257,15 +255,27 @@ Response *searchRecord(BibData *bib, Request *req)
 
     if (req->loan)
     {
-        // @ temp test
-        printf("\nrichiesto prestito\n\n");
-        bool temp = loanCheck(bib, response);
-        printf("\tloan : %d\n\n", temp);
+        response->loan = loanCheck(bib, response);
+        // TODO - change loan date in bib data structure
+        if (response->loan)
+        {
+            loanUpdate(bib, response);
+        }
     }
 
     return response;
 }
 
+/*
+### Description
+    Check if the loan if aviable checking check if the field 'prestito' is there and comparing it with te actual date if necessary
+### Parameters
+    - `BibData *bib` is the pointer to the bib datastructure (all records)
+    - `Response *response` is the datastructure with the response for answare to the client
+### Return value
+    Returne `true` if there isn't the field 'prestito' or if the loan is expired (30 days from the date)
+    Returne `false` if the loan isn't expired
+*/
 bool loanCheck(BibData *bib, Response *response)
 {
     // iter for the record that match with the request
@@ -285,34 +295,139 @@ bool loanCheck(BibData *bib, Response *response)
                 pos++;
             }
             pos[19] = '\0';
-            // separate date from hour
-            char *date = pos;
-            char *hour = pos + 11;
-            date[10] = '\0';
-            // save individually all datas
-            int y, m, d, h, min, sec;
-            char *dtoken = strtok(date, "-");
-            d = atoi(dtoken);
-            dtoken = strtok(NULL, "-");
-            m = atoi(dtoken);
-            dtoken = strtok(NULL, "-");
-            y = atoi(dtoken);
-            char *htoken = strtok(hour, ":");
-            h = atoi(htoken);
-            htoken = strtok(NULL, ":");
-            min = atoi(htoken);
-            htoken = strtok(NULL, ":");
-            sec = atoi(htoken);
-            // get the actual time
-            time_t t = time(NULL);
-            struct tm *tm = localtime(&t);
-            // TODO - continue...
+
+            time_t now;
+            struct tm *tm_now;
+            now = time(NULL);
+            tm_now = localtime(&now);
+
+            // parse the string
+            struct tm tm_data;
+            memset(&tm_data, 0, sizeof(struct tm));
+            strptime(pos, "%d-%m-%Y %H:%M:%S", &tm_data);
+
+            // add 30 days
+            updateDate(&tm_data, 30);
+
+            // data originale 13/7/2012
+
+            // comparation
+            time_t time_data = mktime(&tm_data);
+            double diff = difftime(time_data, now);
+
+            if (diff <= 0)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
         else
         {
-            // @ temp test
-            printf("\tprestito disponibile\n");
             return true;
         }
+    }
+}
+
+/*
+### Description
+    Update the loan expire date in the record
+### Parameters
+    - `BibData *bib` is the data structure containing the records
+    - `Response *response` is the data structure containing the positions of the focus records in bib
+*/
+void loanUpdate(BibData *bib, Response *response)
+{
+    for (int i = 0; i < response->size; i++)
+    {
+        char *pos = strstr(bib->book[response->pos[i]], "prestito");
+        if (pos != NULL)
+        {
+
+            char *expireDate = (char *)malloc(sizeof(char) * 29);
+            if (expireDate == NULL)
+            {
+                // error handling
+                perror(THIS_PATH "loanUpdate - expireDate allocation failed");
+                exit(EXIT_FAILURE);
+            }
+            // get actual time
+            time_t now = time(NULL);
+            struct tm *tm_now = localtime(&now);
+            // add 30 days
+            updateDate(tm_now, 30);
+            // foramt the date in a string
+            strftime(expireDate, 31, "prestito: %d-%m-%Y %H:%M:%S", tm_now);
+
+            // update the value in the field
+            char *pos = strstr(bib->book[response->pos[i]], "prestito:");
+            // skip spaces
+            while (isspace(pos[0]))
+            {
+                pos++;
+            }
+
+            strncpy(pos, expireDate, strlen(expireDate));
+        }
+        else
+        {
+
+            char *expireDate = (char *)malloc(sizeof(char) * 29);
+            if (expireDate == NULL)
+            {
+                // error handling
+                perror(THIS_PATH "loanUpdate - expireDate allocation failed");
+                exit(EXIT_FAILURE);
+            }
+            // get actual time
+            time_t now = time(NULL);
+            struct tm *tm_now = localtime(&now);
+            // add 30 days
+            updateDate(tm_now, 30);
+            // format the date in a string
+            strftime(expireDate, 31, "prestito: %d-%m-%Y %H:%M:%S", tm_now);
+
+            // add the field:value in the record
+            bib->book[response->pos[i]] = realloc(bib->book[response->pos[i]], (strlen(bib->book[response->pos[i]]) + strlen(expireDate) + 1));
+            bib->book[response->pos[i]][strlen(bib->book[response->pos[i]]) - 1] = '\0';
+            strcat(bib->book[response->pos[i]], expireDate);
+        }
+    }
+}
+
+/*
+### Description
+    add `days` days on a date, updating also month and year
+### Parameters
+    - `struct tm *date` is the date to update
+    - `int days` indicates how many days to increase the date
+*/
+void updateDate(struct tm *date, int days)
+{
+    int monthdays;
+    if (date->tm_mon == 0 || date->tm_mon == 2 || date->tm_mon == 4 || date->tm_mon == 6 || date->tm_mon == 7 || date->tm_mon == 9 || date->tm_mon == 11) {
+        monthdays = 31;
+    } else if (date->tm_mon == 1) {
+        if (date->tm_year % 4 == 0) {
+            monthdays = 29;
+        } else {
+            monthdays = 28;
+        }
+    } else {
+        monthdays = 30;
+    }
+
+    if (date->tm_mday + days <= monthdays) {
+        date->tm_mday += days;
+    } else {
+        if (date->tm_mon == 11) {
+            date->tm_year++;
+            date->tm_mon = 0;
+        } else {
+            date->tm_mon++;
+        }
+        date->tm_mday = date->tm_mday + days - monthdays;
     }
 }

@@ -27,4 +27,8 @@ FILE *fileFormatCheck(char *path);
 
 bool loanCheck(BibData *bib, Response* response);
 
+void loanUpdate(BibData *bib, Response *response);
+
+void updateDate(struct tm *date, int days);
+
 // int *requestFormatCheck(char *request, char *format) 

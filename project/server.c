@@ -36,7 +36,7 @@ int main()
 
 
     // @ temp test
-    printf("FROM CLIENT: %s\n", temp);
+    printf("FROM CLIENT: %s\n\n", temp);
 
     req = requestParser(temp);
 
@@ -47,24 +47,28 @@ int main()
         // error handling
         exit(EXIT_FAILURE);
     }
-    // @ temp test
-    printf("chiamato searchrecord\n");
     Response *paolo = searchRecord(bib, req);
 
     if (paolo != NULL)
     {
         // @ temp test
-        printf("SERVER: #record trovati %d\n", paolo->size);
+        printf("SERVER: #record trovati %d\n\n", paolo->size);
         for (int i = 0; i < paolo->size; i++)
         {
             // printf("%s\n\n", paolo->records[i]);
+            if (paolo->loan) {
             // @ temp test
             printf("%s\n\n", bib->book[paolo->pos[i]]);
+
+            } else {
+                // @ temp test
+                printf("prestito non disponibile\n\n");
+            }
         }
     }
     else
     {
-        printf("Record not found\n");
+        printf("Record not found\n\n");
     }
 
     // // * socket creation
