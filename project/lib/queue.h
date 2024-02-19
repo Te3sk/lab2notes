@@ -30,13 +30,13 @@ typedef struct
 } Queue;
 
 // Initialize the queue
-void init(Queue *q);
+void queue_init(Queue *q);
 
 // Destroy the queue
-void destroy(Queue *q);
+void queue_destroy(Queue *q);
 
 // Push an element to the queue
-void push(void *data, Queue *q);
+void queue_push(void *data, Queue *q);
 
 // Pop an element from the queue
-void *pop(Queue *q);
+void *queue_pop(Queue *q);

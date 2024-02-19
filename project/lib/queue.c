@@ -6,7 +6,7 @@
 ### Parameters
     - `Queue *q` is a pointer to a Queue data structure (defined in lib/queue.h)
 */
-void init(Queue *q)
+void queue_init(Queue *q)
 {
     // initialize the queue
     q->head = q->tail = NULL;
@@ -21,7 +21,7 @@ void init(Queue *q)
 ### Parameters
     - `Queue *q` is a pointer to a Queue data structure (defined in lib/queue.h)
 */
-void destroy(Queue *q)
+void queue_destroy(Queue *q)
 {
     // destroy the mutex and condition variable
     pthread_mutex_destroy(&(q->mutex));
@@ -42,7 +42,7 @@ void destroy(Queue *q)
     - `void *data` is a pointer to the value to insert
     - `Queue *q` is the queue in which the func insert the value
 */
-void push(void *data, Queue *q)
+void queue_push(void *data, Queue *q)
 {
     // create a new node
     Node *n = (Node *)malloc(sizeof(Node));
@@ -79,7 +79,7 @@ void push(void *data, Queue *q)
 ### Return value
     return `data`, the first one item in the queue (head), the type depends on which data have been insert
 */
-void *pop(Queue *q)
+void *queue_pop(Queue *q)
 {
     // lock the mutex
     pthread_mutex_lock(&q->mutex);
