@@ -30,7 +30,10 @@ int main()
 
     // char temp[] = "author:Luccio, Fabrizio;title:Manuale di architettura pisana;p";
     // char temp[] = "author:Luccio, Fabrizio;title:Mathematical and Algorithmic Foundations of the Internet;p";
-    char temp[] = "author:Luccio, Fabrizio;";
+    // char temp[] = "author:Luccio, Fabrizio;title:Mathematical and Algorithmic Foundations of the Internet;editor:Morgan Kaufmann";
+    // char temp[] = "author:Luccio, Fabrizio;title:Mathematical and Algorithmic Foundations of the Internet;editor:CRC Press, Taylor and Francis Group;p";
+    char temp[] = "author:Kernighan, Brian W.;title:Programmazione nella Pratica;p";
+
 
     // @ temp test
     printf("FROM CLIENT: %s\n", temp);
@@ -48,14 +51,15 @@ int main()
     printf("chiamato searchrecord\n");
     Response *paolo = searchRecord(bib, req);
 
-    // @ temp test
-    printf("SERVER: #record trovati %d\n", paolo->size);
-
     if (paolo != NULL)
     {
+        // @ temp test
+        printf("SERVER: #record trovati %d\n", paolo->size);
         for (int i = 0; i < paolo->size; i++)
         {
-            printf("%s\n\n", paolo->records[i]);
+            // printf("%s\n\n", paolo->records[i]);
+            // @ temp test
+            printf("%s\n\n", bib->book[paolo->pos[i]]);
         }
     }
     else

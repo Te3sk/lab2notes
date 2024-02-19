@@ -11,8 +11,9 @@ typedef struct Request
 } Request;
 
 typedef struct Response {
-    char **records;
+    int *pos;
     int size;
+    bool loan;
 } Response;
 
 void free_request(Request *request);

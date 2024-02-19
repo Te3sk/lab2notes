@@ -84,7 +84,6 @@ FILE *fileFormatCheck(char *path)
 */
 BibData *createBibData(char *path)
 {
-
     // create a new BibData object
     BibData *bib = malloc(sizeof(BibData));
 
@@ -124,9 +123,8 @@ BibData *createBibData(char *path)
 
 /*
 ### Description
-    Recorsive function check if a single record match with a request
+    Check if a single record match with a request
 ### Parameters
-    - `int pos` is the position of req based on recursive iteration (at first call by another func is 0)
     - `char *record` is the single record extract from a bibData
     - `Request *req` is the current request
 ### Return value
@@ -134,64 +132,79 @@ BibData *createBibData(char *path)
 */
 bool recordMatch(char *record, Request *req)
 {
-    bool found = true;
+    bool found = false;
+    // make a copy to not modify the original
     char *recordCopy = (char *)malloc(strlen(record) * sizeof(char));
-    for (int i = 0; i < req->size; i++)
+    if (recordCopy == NULL)
     {
-        bool subfound = false;
-        strcpy(recordCopy, record);
-        // @ temp test
-        printf("%s\n", recordCopy);
-        printf("->RECORD MATCH - pos : %d, field : %s, value : %s\n", i, req->field_codes[i], req->field_values[i]);
-        // per ogni coppia campo:valore nel record
-        char *token = strtok(recordCopy, ";");
-        // @ temp test
-        printf("%d\n%s\n", (token != NULL), token);
-        while (token != NULL)
+        // error handling
+        perror(THIS_PATH "recordMatch - recordCopy allocation failed");
+        exit(EXIT_FAILURE);
+    }
+    strcpy(recordCopy, record);
+    // tokenize record field
+    char *token = strtok(recordCopy, ";");
+    while (token != NULL)
+    {
+        // remove initial spaces
+        while (isspace(token[0]))
         {
-            // confronta il campo con quello nella richiesta
-            char *field = strtok(token, ":");
-            char *value = strtok(NULL, ":");
-
-            if (field != NULL && value != NULL)
+            token++;
+        }
+        // check if the field_codes match
+        if (strncasecmp(req->field_codes[0], token, strlen(req->field_codes[0])) == 0)
+        {
+            // skip field_codes, spaces and ':' char
+            token += strlen(req->field_codes[0]);
+            while (isspace(token[0]) || token[0] == ':')
             {
-                while (field[0] == ' ')
+                token++;
+            }
+            // check if the field value match
+            if (strncasecmp(req->field_values[0], token, strlen(req->field_values[0])) == 0)
+            {
+                for (int i = 1; i < req->size; i++)
                 {
-                    field++;
-                }
-                while (value[0] == ' ')
-                {
-                    value++;
-                }
-
-                // confronta i campi ignorando il case
-                if (strcasecmp(field, req->field_codes[i]) == 0 && strcasecmp(value, req->field_values[i]) == 0)
-                {
-                    // controlla se il nome del campo corrisponde alla richiesta
-                    if (strcasecmp(field, req->field_codes[i]) == 0)
+                    // make a copy to not modify the original
+                    char *secRecordCopy = (char *)malloc(strlen(record) * sizeof(char));
+                    if (secRecordCopy == NULL)
                     {
-                        // @ temp test
-                        printf("\tTRUE\n");
-                        subfound = true;
+                        // error handling
+                        perror(THIS_PATH "recordMatch - recordCopy allocation failed");
+                        exit(EXIT_FAILURE);
+                    }
+                    strcpy(secRecordCopy, record);
+                    // find the next request field in record
+                    char *pos = strcasestr(secRecordCopy, req->field_codes[i]);
+                    if (pos == NULL)
+                    {
+                        // not found
+                        found = false;
+                        break;
+                    }
+                    else
+                    {
+                        // found, skip the field_code, spaces and ':' char
+                        pos += strlen(req->field_codes[i]);
+                        while (isspace(pos[0]) || pos[0] == ':')
+                        {
+                            pos++;
+                        }
+                        // compare with the field_value
+                        if (strncasecmp(pos, req->field_values[i], strlen(req->field_values[i])) == 0)
+                        {
+                            found = true;
+                        }
+                        else
+                        {
+                            found = false;
+                        }
                     }
                 }
             }
-            token = strtok(NULL, ";");
-
-            // if (pos < (req->size - 1))
-            // {
-            //     // @ temp test
-            //     printf("pos from %d to %d\nchiamata ricorsiva\n", pos, pos + 1);
-            //     return recordMatch(pos + 1, record, req);
-            // }
-            // else
-            // {
-            //     printf("\tFALSE\n");
-            //     return false;
-            // }
         }
 
-        found = found&&subfound;
+        token = strtok(NULL, ";");
     }
     return found;
 }
@@ -218,8 +231,8 @@ Response *searchRecord(BibData *bib, Request *req)
         // TODO - error handling
     }
     response->size = 0;
-    response->records = (char **)malloc(sizeof(char *));
-    if (response->records == NULL)
+    response->pos = (int *)malloc(sizeof(int));
+    if (response->pos == NULL)
     {
         // TODO - error handling
     }
@@ -229,21 +242,77 @@ Response *searchRecord(BibData *bib, Request *req)
     {
         if (recordMatch(bib->book[i], req))
         {
-            // @ temp test
-            printf("TRUE\n");
-            response->records = (char **)realloc(response->records, sizeof(char *) * (response->size + 1));
-            response->records[response->size] = (char *)malloc(sizeof(char) * (strlen(bib->book[i]) + 1));
-            strcpy(response->records[response->size], bib->book[i]);
+            response->pos = (int *)realloc(response->pos, sizeof(int) * (response->size + 1));
+            response->pos[response->size] = i;
             response->size++;
         }
     }
 
     if (response->size <= 0)
     {
-        free(response->records);
+        free(response->pos);
         free(response);
         return NULL;
     }
 
+    if (req->loan)
+    {
+        // @ temp test
+        printf("\nrichiesto prestito\n\n");
+        bool temp = loanCheck(bib, response);
+        printf("\tloan : %d\n\n", temp);
+    }
+
     return response;
+}
+
+bool loanCheck(BibData *bib, Response *response)
+{
+    // iter for the record that match with the request
+    for (int i = 0; i < response->size; i++)
+    {
+        // make a copy of the record to not modify the original
+        char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1));
+        strcpy(recordCopy, bib->book[response->pos[i]]);
+
+        char *pos = strcasestr(recordCopy, "prestito:");
+        if (pos != NULL)
+        {
+            // skip field_code and spaces and set the end of the string
+            pos += strlen("prestito:");
+            while (isspace(pos[0]))
+            {
+                pos++;
+            }
+            pos[19] = '\0';
+            // separate date from hour
+            char *date = pos;
+            char *hour = pos + 11;
+            date[10] = '\0';
+            // save individually all datas
+            int y, m, d, h, min, sec;
+            char *dtoken = strtok(date, "-");
+            d = atoi(dtoken);
+            dtoken = strtok(NULL, "-");
+            m = atoi(dtoken);
+            dtoken = strtok(NULL, "-");
+            y = atoi(dtoken);
+            char *htoken = strtok(hour, ":");
+            h = atoi(htoken);
+            htoken = strtok(NULL, ":");
+            min = atoi(htoken);
+            htoken = strtok(NULL, ":");
+            sec = atoi(htoken);
+            // get the actual time
+            time_t t = time(NULL);
+            struct tm *tm = localtime(&t);
+            // TODO - continue...
+        }
+        else
+        {
+            // @ temp test
+            printf("\tprestito disponibile\n");
+            return true;
+        }
+    }
 }

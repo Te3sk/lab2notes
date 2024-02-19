@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <time.h>
 
 #include "pars.h"
 
@@ -23,5 +24,7 @@ bool recordMatch(char *record, Request *req);
 Response *searchRecord(BibData *bib, Request *req);
 
 FILE *fileFormatCheck(char *path);
+
+bool loanCheck(BibData *bib, Response* response);
 
 // int *requestFormatCheck(char *request, char *format) 
