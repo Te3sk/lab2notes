@@ -202,7 +202,9 @@ bool recordMatch(char *record, Request *req)
                             }
                         }
                     }
-                } else {
+                }
+                else
+                {
                     return true;
                 }
             }
@@ -230,13 +232,15 @@ Response *searchRecord(BibData *bib, Request *req)
     Response *response = (Response *)malloc(sizeof(Response));
     if (response == NULL)
     {
-        // TODO - error handling
+        perror(THIS_PATH "searchRecord - response allocation failed");
+        exit(EXIT_FAILURE);
     }
     response->size = 0;
     response->pos = (int *)malloc(sizeof(int));
     if (response->pos == NULL)
     {
-        // TODO - error handling
+        perror(THIS_PATH "searchRecord - response->pos allocation failed");
+        exit(EXIT_FAILURE);
     }
     int count = 0;
     for (int i = 0; i < bib->size; i++)
@@ -259,7 +263,6 @@ Response *searchRecord(BibData *bib, Request *req)
     if (req->loan)
     {
         response->loan = loanCheck(bib, response);
-        // TODO - change loan date in bib data structure
         if (response->loan)
         {
             loanUpdate(bib, response);
@@ -449,7 +452,17 @@ void updateDate(struct tm *date, int days)
     }
 }
 
-// TODO - desc
+/*
+### Description
+    Take the string with the request sended by client and put infos in the `Response` data structure
+### Parameters
+    - `char *request` is the string containing the request by the client
+    - `char type` is the char with the type of msg the client send before the msg
+    - `int senderFD` is the file descriptor of the client that make the request
+### Return value
+    On success (request of the right format) return a pointer to the `Request` data structure filled with the infos
+    On fail (wrong request format or wrong type char) return null
+*/
 Request *requestFormatCheck(char *request, char type, int senderFD)
 {
     // initialize data structure
@@ -467,7 +480,7 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
     else
     {
         printf(THIS_PATH "requestFormatCheck, ERROR: invalid request type\n");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
     req->field_codes = (char **)malloc(sizeof(char *));
     req->field_values = (char **)malloc(sizeof(char *));
@@ -475,7 +488,6 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
     // copy the request to mantain the original
     char *request_copy = (char *)malloc(strlen(request));
     strcpy(request_copy, request);
-
 
     // tokenize for ";"
     char *token = strtok(request_copy, ";");
@@ -486,7 +498,6 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         if (pos == NULL)
         {
             printf(THIS_PATH "requestFormatCeck, ERROR: invalid request format\n");
-            free_request(req);
             return NULL;
         }
         // save values

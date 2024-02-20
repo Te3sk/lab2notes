@@ -101,8 +101,7 @@ Request *requestParser(char *string)
             }
 
             strncpy(temp_field_code, token, pv - token);
-            // // @ temp test
-            // printf("%s\n", temp_field_code);
+
             if (strcmp(temp_field_code, "author") == 0)
             {
                 req->field_codes[req->size] = "autore";

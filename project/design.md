@@ -43,9 +43,3 @@
 6. collocazione - c
 7. luogo pubblicazione - p
 8. descrizione fisica - d
-
-
-
-
-
-   

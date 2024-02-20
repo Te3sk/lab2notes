@@ -44,7 +44,7 @@ int main()
 {
     BibData *bib = createBibData("bibData/bib1.txt");
 
-    // // * socket creation
+    // * socket creation
     int server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
     if (server_socket == -1)
     {
@@ -74,15 +74,10 @@ int main()
         exit(EXIT_FAILURE);
     }
 
-    // @ temp test
-    printf("Il server è pronto e in ascolto (fd: %d)\n", server_socket);
-
     Queue *q = (Queue *)malloc(sizeof(Queue));
     queue_init(q);
-    // @ temp test
-    printf("queue initalized\n");
 
-    // TODO - thread creation
+    // thread creation
     for (int i = 0; i < W; i++)
     {
         pthread_t tid;
@@ -102,67 +97,21 @@ int main()
             perror("accept failed");
             exit(EXIT_FAILURE);
         }
-
         char *data, type = readData(client_fd, &data);
 
         Request *req = requestFormatCheck(data, type, client_fd);
+        if (req == NULL) {
+            req = (Request *)malloc(sizeof(Request));
+            req->senderFD = client_fd;
+            req->size = -1;
+        }
 
         queue_push((void *)req, q);
-
-        // @ temp test
-        printf("Nuova connessione accettata(client fd: %d)\n", client_fd);
-
-        // TODO - put request in the queue
     }
 
     // TODO - poi dovrà essere gestito con il segnale di terminazione
     close(server_socket);
     unlink(SOCKET_PATH);
-
-    // lib testing (bib_ds.c and pars.c)
-    /*Request *req = (Request *)malloc(sizeof(Request));
-
-    char temp[] = "author:Luccio, Fabrizio;title:Manuale di architettura pisana;p";
-    char temp[] = "author:Luccio, Fabrizio;title:Mathematical and Algorithmic Foundations of the Internet;p";
-    char temp[] = "author:Luccio, Fabrizio;title:Mathematical and Algorithmic Foundations of the Internet;editor:Morgan Kaufmann";
-    char temp[] = "author:Luccio, Fabrizio;title:Mathematical and Algorithmic Foundations of the Internet;editor:CRC Press, Taylor and Francis Group;p";
-    char temp[] = "author:Kernighan, Brian W.;title:Programmazione nella Pratica;p";
-
-
-    // @ temp test
-    printf("FROM CLIENT: %s\n\n", temp);
-
-    req = requestParser(temp);
-
-
-    if (bib == NULL)
-    {
-        // error handling
-        exit(EXIT_FAILURE);
-    }
-    Response *paolo = searchRecord(bib, req);
-
-    if (paolo != NULL)
-    {
-        // @ temp test
-        printf("SERVER: #record trovati %d\n\n", paolo->size);
-        for (int i = 0; i < paolo->size; i++)
-        {
-            // printf("%s\n\n", paolo->records[i]);
-            if (paolo->loan) {
-            // @ temp test
-            printf("%s\n\n", bib->book[paolo->pos[i]]);
-
-            } else {
-                // @ temp test
-                printf("prestito non disponibile\n\n");
-            }
-        }
-    }
-    else
-    {
-        printf("Record not found\n\n");
-    }*/
 
     return 0;
 }
@@ -171,54 +120,63 @@ void *worker(void *arg)
 {
     Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
-    // @ temp test
-    printf("\tenter in worker func\n");
 
     Request *req = ((Request *)queue_pop(queue));
-    // @ temp test
-    // for (int i = 0; i < req->size; i++) {
-    //     printf("\t\t|%s|\t:\t|%s|\n", req->field_codes[i], req->field_values[i]);
-    // }
-    printf("loan%srequest\n", req->loan ? " " : " not ");
 
-    Response *response = searchRecord(bib, req);
-
-    if (response == NULL) {
-        // @ temp test
-        printf("nessun record trovato\n");
-        sendData(req->senderFD, MSG_NO, "");
-    } else {
-        char type = MSG_RECORD;
-        // @ temp test
-        printf("ottenuto/i risultato/i\n");
-        int size = 0;
-        char *data = (char*)malloc(sizeof(char));
-        for (int i = 0; i < response->size; i++) {
-            data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 1);
-            size += strlen(bib->book[response->pos[i]] + 1);
-            strcat(data, bib->book[response->pos[i]]);
-            data[size] = '\n';
-        }
-
-        int i = size;
-        while(data[i] == '\n' || data[i] == '\0') {
-            if (data[i] == '\n') {
-                size--;
-            }
-            i--;
-        }
-        data[++size] = '\0';
-
-        sendData(req->senderFD, MSG_RECORD, data);
+    if (req->size == -1)
+    {
+        sendData(req->senderFD, MSG_ERROR, "");
     }
+    else
+    {
 
-    
+        Response *response = searchRecord(bib, req);
 
+        if (response == NULL)
+        {
+            sendData(req->senderFD, MSG_NO, "");
+        }
+        else
+        {
+            char type = MSG_RECORD;
+            int size = 0;
+            char *data = (char *)malloc(sizeof(char));
+            for (int i = 0; i < response->size; i++)
+            {
+                data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 1);
+                size += strlen(bib->book[response->pos[i]] + 1);
+                strcat(data, bib->book[response->pos[i]]);
+                data[size] = '\n';
+            }
+
+            int i = size;
+            while (data[i] == '\n' || data[i] == '\0')
+            {
+                if (data[i] == '\n')
+                {
+                    size--;
+                }
+                i--;
+            }
+            data[++size] = '\0';
+
+            sendData(req->senderFD, MSG_RECORD, data);
+        }
+    }
 
     exit(1);
 }
 
-// TODO - desc
+/*
+### Description
+    Send the data to the server with the right comunication protocol: type -> length -> data
+### Parameters
+    - `int clientFD` is the file descriptor
+    - `char type` is the char with the type of msg for the client: MSG_RECORD, MSG_NO, MSG_ERROR
+    - `char *data` is the msg for the client.
+        on search success contain the records finded
+        on fail or error is empty
+*/
 void sendData(int clientFD, char type, char *data)
 {
     // send type
@@ -239,7 +197,16 @@ void sendData(int clientFD, char type, char *data)
     }
 }
 
-// TODO - desc
+/*
+### Description
+    Read data (request) from server whith the right comunication protocol: type -> length -> data
+### Parameters
+    - `int clientFD` is the file descriptor
+    - `char **data` is the pointer where save the request string from the client
+### Return value
+    On success return the char with the type
+    On fail print an error msg and exit
+*/
 char readData(int clientFD, char **data)
 {
     char type, *l = (char *)malloc(10 * sizeof(char));
