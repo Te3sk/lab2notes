@@ -1,3 +1,6 @@
+#ifndef BIB_DS_H
+#define BIB_DS_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,4 +34,6 @@ void loanUpdate(BibData *bib, Response *response);
 
 void updateDate(struct tm *date, int days);
 
-// int *requestFormatCheck(char *request, char *format) 
+Request* requestFormatCheck(char *request, char type, int senderFD);
+
+#endif

@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include "pars.h"
 
 #define THIS_PATH "lib/pars.c/"
@@ -98,8 +101,8 @@ Request *requestParser(char *string)
             }
 
             strncpy(temp_field_code, token, pv - token);
-
-
+            // // @ temp test
+            // printf("%s\n", temp_field_code);
             if (strcmp(temp_field_code, "author") == 0)
             {
                 req->field_codes[req->size] = "autore";
@@ -141,16 +144,13 @@ Request *requestParser(char *string)
 
 /*
 ### Description
-    Check the format of the parameters send by user in the program calling and parse them in a string that have to be send to the server
+    Check if the format of the input values is right and parse them in a string for the request to the server
 ### Parameters
-    - `int argc` is the number of arguments the user wrote in the program calling
-    - `char *argv[]` is an array of string with all the arguments
-    NB: the first argument is always the name of the executable file
+    - `int argc` and `char *argv[]` are the command line parameters
 ### Return value
-    On success return a formatted string with all the infos
-    On error/fail return a message error and NULL
+    On success return the parsed string, on fail print the mistake and return `NULL`
 */
-char *checkInputFormatNparser(int argc, char *argv[])
+char *checkInputFormatNparser(int argc, char *argv[], bool *loan)
 {
     if (argc < 2)
     {
@@ -160,8 +160,8 @@ char *checkInputFormatNparser(int argc, char *argv[])
 
     // TODO - set the right size
     char *request = (char *)malloc(sizeof(char) * 5000);
+    *loan = false;
 
-    int loan = 0;
     for (int i = 1; i < argc; i++)
     {
         if (argv[i][0] == '-' && argv[i][1] == '-')
@@ -188,19 +188,89 @@ char *checkInputFormatNparser(int argc, char *argv[])
         }
         else if (argv[i][0] == '-')
         {
-            loan = 1;
+            *loan = true;
         }
         else
         {
             printf("Wrong parameters format\n", USAGE_STRING);
             return NULL;
         }
-
-        if (loan == 1)
-        {
-            strcat(request, "p");
-        }
     }
 
+    request[strlen(request) - 1] = '\0';
+
     return request;
+}
+
+/*
+### Description
+    read an integer from a socket using network byte order type
+### Parameters
+    - `int fd` is the file descriptor from which read the integer
+### Return value
+    on success return the int readed, on fail print an error msg and exit
+*/
+int receive_int(int fd)
+{
+    // network byte order type
+    int32_t ret;
+    // char for reading from socket
+    char *data = (char *)&ret;
+    // size of bytes to receive
+    int left = sizeof(ret);
+    int rc;
+    do
+    {
+        rc = read(fd, data, left);
+        if (rc == -1)
+        {
+            // error handling
+            perror(THIS_PATH "receive_int - read failed");
+            exit(EXIT_FAILURE);
+        }
+        else
+        {
+            // update data pointer and remaining bytes
+            data += rc;
+            left -= rc;
+        }
+    } while (left > 0); // continue untill it send all bytes
+    // from network bytes order to host bytes order
+    return ntohl(ret);
+}
+
+/*
+### Description
+    send an integer data on a socket using network byte order type
+### Parameters
+    - `int num` is the integer to send
+    - `int fd` is the file descriptor of the socket on which send the integere
+### Note
+    on fail send an error msg and exit
+*/
+void send_int(int num, int fd)
+{
+    // num from host byte order to network byte order
+    int32_t conv = htonl(num);
+    // to string for sending
+    char *data = (char *)&conv;
+    // size of bytes to send
+    int left = sizeof(conv);
+    int rc;
+    do
+    {
+        rc = write(fd, data, left);
+        if (rc == -1)
+        {
+            // error handling
+            perror(THIS_PATH "send_int - write failed");
+            exit(EXIT_FAILURE);
+        }
+        else
+        {
+            // update data pointer and remaining bytes
+            data += rc;
+            left -= rc;
+        }
+    } while (left > 0); // continue untill it send all bytes
 }

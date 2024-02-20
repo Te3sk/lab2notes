@@ -6,18 +6,25 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include "lib/queue.h"
 #include "lib/bib_ds.h"
+#include "lib/pars.h"
 
 #define SOCKET_PATH "./socket/temp_sock"
 #define THIS_PATH "server.c/"
 #define MAX_CLIENTS 10 // temp, it must be 40
 #define MAX_LENGTH 500 // TODO - understand how many bytes give
 
+// Messaggio per richiedere i record che contengono alcune parole specifiche in alcuni campi
 #define MSG_QUERY 'Q'
+// Messaggio per richiedere il prestito di tutti i record che contengono alcune parole specifiche in alcuni campi
 #define MSG_LOAN 'L'
+// Messaggio di invio record. Il campo buffer contiene il record completo come stringa correttamente terminata da '\0'.
 #define MSG_RECORD 'R'
+// Messaggio di risposta negativa. Con questo messaggio il server segnala che non ci sono record che verificano la query
 #define MSG_NO 'N'
+// MSG ERROR Messaggio di errore. Questo tipo di messaggio viene spedito quando si è verificato un errore nel processare la richiesta del client.
 #define MSG_ERROR 'E'
 
 // TODO - temp, W have to be insert by user in program launch
@@ -31,7 +38,7 @@ typedef struct WorkerArgs
 
 void *worker(void *arg);
 void sendData(int clientFD, char type, char *data);
-char *readData(int clientFD);
+char readData(int clientFD, char **data);
 
 int main()
 {
@@ -96,10 +103,11 @@ int main()
             exit(EXIT_FAILURE);
         }
 
-        int *client_fd_ptr = (int *)malloc(sizeof(int));
-        *client_fd_ptr = client_fd;
+        char *data, type = readData(client_fd, &data);
 
-        queue_push((void *)client_fd_ptr, q);
+        Request *req = requestFormatCheck(data, type, client_fd);
+
+        queue_push((void *)req, q);
 
         // @ temp test
         printf("Nuova connessione accettata(client fd: %d)\n", client_fd);
@@ -166,65 +174,93 @@ void *worker(void *arg)
     // @ temp test
     printf("\tenter in worker func\n");
 
-    int clientFD = *((int *)queue_pop(queue));
+    Request *req = ((Request *)queue_pop(queue));
     // @ temp test
-    printf("\tclient fd = %d\n", clientFD);
-
-    readData(clientFD);
-
-    // char *buffer = (char *)malloc(MAX_LENGTH * sizeof(char));
-    // int bytesread = read(clientFD, buffer, MAX_LENGTH);
-    // // @ temp test
-    // printf("ricevuto qualcosa(%d byte)\n", bytesread);
-    // if (bytesread == -1)
-    // {
-    //     // error handling
-    //     perror(THIS_PATH "worker - read failed");
-    //     exit(EXIT_FAILURE);
+    // for (int i = 0; i < req->size; i++) {
+    //     printf("\t\t|%s|\t:\t|%s|\n", req->field_codes[i], req->field_values[i]);
     // }
+    printf("loan%srequest\n", req->loan ? " " : " not ");
 
-    // // @ temp test
-    // printf("\tclient send: %s\n", buffer);
+    Response *response = searchRecord(bib, req);
+
+    if (response == NULL) {
+        // @ temp test
+        printf("nessun record trovato\n");
+        sendData(req->senderFD, MSG_NO, "");
+    } else {
+        char type = MSG_RECORD;
+        // @ temp test
+        printf("ottenuto/i risultato/i\n");
+        int size = 0;
+        char *data = (char*)malloc(sizeof(char));
+        for (int i = 0; i < response->size; i++) {
+            data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 1);
+            size += strlen(bib->book[response->pos[i]] + 1);
+            strcat(data, bib->book[response->pos[i]]);
+            data[size] = '\n';
+        }
+
+        int i = size;
+        while(data[i] == '\n' || data[i] == '\0') {
+            if (data[i] == '\n') {
+                size--;
+            }
+            i--;
+        }
+        data[++size] = '\0';
+
+        sendData(req->senderFD, MSG_RECORD, data);
+    }
+
+    
+
+
     exit(1);
-
-    // TODO - waiting for lib/bib_ds.c/requestFormatCheck dev
-    // if(requestFormatCheck(buffer) == comparig value){
-    //     // error handling
-    //     perror("worker - wrong request format");
-    //     exit(EXIT_FAILURE);
-    // }
 }
 
+// TODO - desc
 void sendData(int clientFD, char type, char *data)
 {
-    // TODO - send type
-    // TODO - compute length
-    // TODO - send length
-    // TODO - send data
+    // send type
+    if (send(clientFD, &type, sizeof(char), 0) == -1)
+    {
+        // error handling
+        perror(THIS_PATH "sendData - type sending failed");
+        exit(EXIT_FAILURE);
+    }
+    // send length
+    send_int(strlen(data), clientFD);
+    // send data
+    if (send(clientFD, data, strlen(data), 0) == -1)
+    {
+        // error handling
+        perror(THIS_PATH "sendData - data sending failed");
+        exit(EXIT_FAILURE);
+    }
 }
 
-char *readData(int clientFD) {
-    int length;
-    char type, *l = (char*)malloc(10 * sizeof(char));
+// TODO - desc
+char readData(int clientFD, char **data)
+{
+    char type, *l = (char *)malloc(10 * sizeof(char));
     // read type
-    int bytesread = read(clientFD, &type, sizeof(char));
-    if(bytesread == -1){
+    int length, bytesread = read(clientFD, &type, sizeof(char));
+    if (bytesread == -1)
+    {
         // error handling
-        perror(THIS_PATH"readData - type reading failed");
+        perror(THIS_PATH "readData - type reading failed");
         exit(EXIT_FAILURE);
     }
-    // @ temp test
-    printf("type:%c\n", type); 
-
     // read length
-    bytesread = read(clientFD, l, 2*sizeof(char));
-    if(bytesread == -1){
+    length = receive_int(clientFD);
+    *data = (char *)malloc((length + 1) * sizeof(char));
+    bytesread = read(clientFD, *data, length);
+    if (bytesread == -1)
+    {
         // error handling
-        perror(THIS_PATH"readData - length reading failed");
+        perror(THIS_PATH "readData - data reading failed");
         exit(EXIT_FAILURE);
     }
-    l[bytesread] = '\0';
-    // @ temp test
-    printf("length: %s\n", l);
-
+    (*data)[bytesread] = '\0';
+    return type;
 }

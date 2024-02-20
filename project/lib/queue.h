@@ -1,9 +1,15 @@
+#ifndef QUEUE_H
+#define QUEUE_H
+
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
+
+#include "pars.h"
+// #include "bib_ds.h"
 
 /*
 ### Field
@@ -40,3 +46,5 @@ void queue_push(void *data, Queue *q);
 
 // Pop an element from the queue
 void *queue_pop(Queue *q);
+
+#endif

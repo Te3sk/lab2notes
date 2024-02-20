@@ -20,7 +20,6 @@ FILE *fileFormatCheck(char *path)
 
     // open the file
     FILE *fp = fopen(path, "rb");
-    // @ temp test
     if (fp == NULL)
     {
         // error handling
@@ -163,43 +162,48 @@ bool recordMatch(char *record, Request *req)
             // check if the field value match
             if (strncasecmp(req->field_values[0], token, strlen(req->field_values[0])) == 0)
             {
-                for (int i = 1; i < req->size; i++)
+                if (req->size > 1)
                 {
-                    // make a copy to not modify the original
-                    char *secRecordCopy = (char *)malloc(strlen(record) * sizeof(char));
-                    if (secRecordCopy == NULL)
+                    for (int i = 1; i < req->size; i++)
                     {
-                        // error handling
-                        perror(THIS_PATH "recordMatch - recordCopy allocation failed");
-                        exit(EXIT_FAILURE);
-                    }
-                    strcpy(secRecordCopy, record);
-                    // find the next request field in record
-                    char *pos = strcasestr(secRecordCopy, req->field_codes[i]);
-                    if (pos == NULL)
-                    {
-                        // not found
-                        found = false;
-                        break;
-                    }
-                    else
-                    {
-                        // found, skip the field_code, spaces and ':' char
-                        pos += strlen(req->field_codes[i]);
-                        while (isspace(pos[0]) || pos[0] == ':')
+                        // make a copy to not modify the original
+                        char *secRecordCopy = (char *)malloc(strlen(record) * sizeof(char));
+                        if (secRecordCopy == NULL)
                         {
-                            pos++;
+                            // error handling
+                            perror(THIS_PATH "recordMatch - recordCopy allocation failed");
+                            exit(EXIT_FAILURE);
                         }
-                        // compare with the field_value
-                        if (strncasecmp(pos, req->field_values[i], strlen(req->field_values[i])) == 0)
+                        strcpy(secRecordCopy, record);
+                        // find the next request field in record
+                        char *pos = strcasestr(secRecordCopy, req->field_codes[i]);
+                        if (pos == NULL)
                         {
-                            found = true;
+                            // not found
+                            found = false;
+                            break;
                         }
                         else
                         {
-                            found = false;
+                            // found, skip the field_code, spaces and ':' char
+                            pos += strlen(req->field_codes[i]);
+                            while (isspace(pos[0]) || pos[0] == ':')
+                            {
+                                pos++;
+                            }
+                            // compare with the field_value
+                            if (strncasecmp(pos, req->field_values[i], strlen(req->field_values[i])) == 0)
+                            {
+                                found = true;
+                            }
+                            else
+                            {
+                                found = false;
+                            }
                         }
                     }
+                } else {
+                    return true;
                 }
             }
         }
@@ -235,7 +239,6 @@ Response *searchRecord(BibData *bib, Request *req)
         // TODO - error handling
     }
     int count = 0;
-
     for (int i = 0; i < bib->size; i++)
     {
         if (recordMatch(bib->book[i], req))
@@ -407,27 +410,128 @@ void loanUpdate(BibData *bib, Response *response)
 void updateDate(struct tm *date, int days)
 {
     int monthdays;
-    if (date->tm_mon == 0 || date->tm_mon == 2 || date->tm_mon == 4 || date->tm_mon == 6 || date->tm_mon == 7 || date->tm_mon == 9 || date->tm_mon == 11) {
+    if (date->tm_mon == 0 || date->tm_mon == 2 || date->tm_mon == 4 || date->tm_mon == 6 || date->tm_mon == 7 || date->tm_mon == 9 || date->tm_mon == 11)
+    {
         monthdays = 31;
-    } else if (date->tm_mon == 1) {
-        if (date->tm_year % 4 == 0) {
+    }
+    else if (date->tm_mon == 1)
+    {
+        if (date->tm_year % 4 == 0)
+        {
             monthdays = 29;
-        } else {
+        }
+        else
+        {
             monthdays = 28;
         }
-    } else {
+    }
+    else
+    {
         monthdays = 30;
     }
 
-    if (date->tm_mday + days <= monthdays) {
+    if (date->tm_mday + days <= monthdays)
+    {
         date->tm_mday += days;
-    } else {
-        if (date->tm_mon == 11) {
+    }
+    else
+    {
+        if (date->tm_mon == 11)
+        {
             date->tm_year++;
             date->tm_mon = 0;
-        } else {
+        }
+        else
+        {
             date->tm_mon++;
         }
         date->tm_mday = date->tm_mday + days - monthdays;
     }
+}
+
+// TODO - desc
+Request *requestFormatCheck(char *request, char type, int senderFD)
+{
+    // initialize data structure
+    Request *req = (Request *)malloc(sizeof(Request));
+    req->senderFD = senderFD;
+    req->size = 0;
+    if (type == 'L')
+    {
+        req->loan = true;
+    }
+    else if (type == 'Q')
+    {
+        req->loan = false;
+    }
+    else
+    {
+        printf(THIS_PATH "requestFormatCheck, ERROR: invalid request type\n");
+        exit(EXIT_FAILURE);
+    }
+    req->field_codes = (char **)malloc(sizeof(char *));
+    req->field_values = (char **)malloc(sizeof(char *));
+
+    // copy the request to mantain the original
+    char *request_copy = (char *)malloc(strlen(request));
+    strcpy(request_copy, request);
+
+
+    // tokenize for ";"
+    char *token = strtok(request_copy, ";");
+    while (token != NULL)
+    {
+        // check the format
+        char *pos = strstr(token, ":");
+        if (pos == NULL)
+        {
+            printf(THIS_PATH "requestFormatCeck, ERROR: invalid request format\n");
+            free_request(req);
+            return NULL;
+        }
+        // save values
+        char *value = pos + 1;
+        req->field_values = realloc(req->field_values, (req->size + 1) * sizeof(char *));
+        req->field_values[req->size] = (char *)malloc(strlen(value) + 1);
+        strcpy(req->field_values[req->size], value);
+        req->field_values[req->size][strlen(req->field_values[req->size])] = '\0';
+        // separate code and values in 'token'
+        pos[0] = '\0';
+        // save codes
+        req->field_codes = realloc(req->field_codes, (req->size + 1) * sizeof(char *));
+        req->field_codes[req->size] = (char *)malloc(strlen(token) + 1);
+        strcpy(req->field_codes[req->size], token);
+        req->field_codes[req->size][strlen(req->field_codes[req->size])] = '\0';
+        token = strtok(NULL, ";");
+        req->size++;
+    }
+
+    for (int i = 0; i < req->size; i++)
+    {
+        if (strcmp(req->field_codes[i], "author") == 0)
+        {
+            req->field_codes[i] = "autore";
+        }
+        else if (strcmp(req->field_codes[i], "title") == 0)
+        {
+            req->field_codes[i] = "titolo";
+        }
+        else if (strcmp(req->field_codes[i], "year") == 0)
+        {
+            req->field_codes[i] = "anno";
+        }
+        else if (strcmp(req->field_codes[i], "editor") == 0)
+        {
+            req->field_codes[i] = "editore";
+        }
+        else if (strcmp(req->field_codes[i], "collocation") == 0)
+        {
+            req->field_codes[i] = "collocazione";
+        }
+        else if (strcmp(req->field_codes[i], "physical_description") == 0)
+        {
+            req->field_codes[i] = "descrizione_fisica";
+        }
+    }
+    return req;
 }
