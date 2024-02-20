@@ -30,6 +30,8 @@ typedef struct WorkerArgs
 } WorkerArgs;
 
 void *worker(void *arg);
+void sendData(int clientFD, char type, char *data);
+char *readData(int clientFD);
 
 int main()
 {
@@ -50,14 +52,16 @@ int main()
     strcpy(server_address.sun_path, SOCKET_PATH);
 
     // * association of the socket to the address
-    if(bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) == -1){
+    if (bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) == -1)
+    {
         // error handling
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
 
     // * Listen to the socket for incoming connections
-    if(listen(server_socket, MAX_CLIENTS) == -1){
+    if (listen(server_socket, MAX_CLIENTS) == -1)
+    {
         // error handling
         perror("listen failed");
         exit(EXIT_FAILURE);
@@ -72,7 +76,8 @@ int main()
     printf("queue initalized\n");
 
     // TODO - thread creation
-    for (int i = 0; i < W; i++) {
+    for (int i = 0; i < W; i++)
+    {
         pthread_t tid;
         WorkerArgs *args = (WorkerArgs *)malloc(sizeof(WorkerArgs));
         args->q = q;
@@ -81,13 +86,20 @@ int main()
     }
 
     // * main cycle
-    while(1) {
+    while (1)
+    {
         int client_fd = accept(server_socket, NULL, NULL);
-        if(client_fd == -1){
+        if (client_fd == -1)
+        {
             // error handling
             perror("accept failed");
             exit(EXIT_FAILURE);
         }
+
+        int *client_fd_ptr = (int *)malloc(sizeof(int));
+        *client_fd_ptr = client_fd;
+
+        queue_push((void *)client_fd_ptr, q);
 
         // @ temp test
         printf("Nuova connessione accettata(client fd: %d)\n", client_fd);
@@ -154,22 +166,25 @@ void *worker(void *arg)
     // @ temp test
     printf("\tenter in worker func\n");
 
-    int clientFD = *((int*)queue_pop(queue));
+    int clientFD = *((int *)queue_pop(queue));
     // @ temp test
     printf("\tclient fd = %d\n", clientFD);
 
-    char *buffer = (char *)malloc(MAX_LENGTH * sizeof(char));
-    int bytesread = read(clientFD, buffer, MAX_LENGTH);
-    // @ temp test
-    printf("ricevuto qualcosa(%d byte)\n" bytesread);
-    if(bytesread == -1){
-        // error handling
-        perror(THIS_PATH "worker - read failed");
-        exit(EXIT_FAILURE);
-    }
+    readData(clientFD);
 
-    // @ temp test
-    printf("\tclient send: %s\n", buffer);
+    // char *buffer = (char *)malloc(MAX_LENGTH * sizeof(char));
+    // int bytesread = read(clientFD, buffer, MAX_LENGTH);
+    // // @ temp test
+    // printf("ricevuto qualcosa(%d byte)\n", bytesread);
+    // if (bytesread == -1)
+    // {
+    //     // error handling
+    //     perror(THIS_PATH "worker - read failed");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    // // @ temp test
+    // printf("\tclient send: %s\n", buffer);
     exit(1);
 
     // TODO - waiting for lib/bib_ds.c/requestFormatCheck dev
@@ -178,4 +193,38 @@ void *worker(void *arg)
     //     perror("worker - wrong request format");
     //     exit(EXIT_FAILURE);
     // }
+}
+
+void sendData(int clientFD, char type, char *data)
+{
+    // TODO - send type
+    // TODO - compute length
+    // TODO - send length
+    // TODO - send data
+}
+
+char *readData(int clientFD) {
+    int length;
+    char type, *l = (char*)malloc(10 * sizeof(char));
+    // read type
+    int bytesread = read(clientFD, &type, sizeof(char));
+    if(bytesread == -1){
+        // error handling
+        perror(THIS_PATH"readData - type reading failed");
+        exit(EXIT_FAILURE);
+    }
+    // @ temp test
+    printf("type:%c\n", type); 
+
+    // read length
+    bytesread = read(clientFD, l, 2*sizeof(char));
+    if(bytesread == -1){
+        // error handling
+        perror(THIS_PATH"readData - length reading failed");
+        exit(EXIT_FAILURE);
+    }
+    l[bytesread] = '\0';
+    // @ temp test
+    printf("length: %s\n", l);
+
 }

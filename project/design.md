@@ -10,6 +10,10 @@
     2. **loan time** check
     3. **record file** update
     4. **book searcher**
+    5. send **response**
+        1. send **type**
+        2. send **lenght**
+        3. send **data**
 8. **terminator**
     1. waiting for all **workers to finish**
     2. waiting for **log file updating**
@@ -21,6 +25,9 @@
 2. check **input format**
 3. **parse request**
 4. **send request**
+    1. send **type**
+    2. send **lenght**
+    3. send **data**
 
 # Formato request
 - numero di parametri
