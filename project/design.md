@@ -45,6 +45,7 @@ bib3.log 0
 QUERY 12
 ```
 - [ ] MAKEFILE
+    - [x] makefile di prova
     - [ ] deve avere, fra gli altri, i target:
         - [ ] `all` (generare tutti gli eseguibili)
         - [ ] `clean` (eliminare i file eseguibili)

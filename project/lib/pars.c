@@ -129,7 +129,7 @@ Request *requestParser(char *string)
             else
             {
                 // error handling
-                printf("%srequestParser - invalid field code\n");
+                printf("%srequestParser - invalid field code\n", THIS_PATH);
                 exit(EXIT_FAILURE);
             }
             req->size++;
@@ -168,7 +168,7 @@ char *checkInputFormatNparser(int argc, char *argv[], bool *loan)
             char *eq = strchr(argv[i], '=');
             if (eq == NULL)
             {
-                printf("Wrong parameters format\n", USAGE_STRING);
+                printf("Wrong parameters format, Usage:\n\t%s\n", USAGE_STRING);
                 return NULL;
             }
 
@@ -191,7 +191,7 @@ char *checkInputFormatNparser(int argc, char *argv[], bool *loan)
         }
         else
         {
-            printf("Wrong parameters format\n", USAGE_STRING);
+            printf("Wrong parameters format, Usage:\n\t%s\n", USAGE_STRING);
             return NULL;
         }
     }
