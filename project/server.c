@@ -10,11 +10,13 @@
 #include "lib/queue.h"
 #include "lib/bib_ds.h"
 #include "lib/pars.h"
+#include "lib/log_func.h"
 
 #define SOCKET_PATH "./socket/temp_sock"
 #define THIS_PATH "server.c/"
-#define MAX_CLIENTS 10 // temp, it must be 40
-#define MAX_LENGTH 500 // TODO - understand how many bytes give
+#define MAX_CLIENTS 10                      // temp, it must be 40
+#define MAX_LENGTH 500                      // TODO - understand how many bytes give
+#define MAX_NAME_LENGTH (10 * sizeof(char)) // TODO - understrand how many
 
 // TODO - per ora non lancia con 'bibserver' ma con './bibserver'
 #define USAGE "Run with:\n\n\t$ bibserver name_bib file_record W\n\n\'name_bib\' is the name of the library, \'file_record\' is the path of the file containing the records, \'W\' is the number of workers.\n"
@@ -37,23 +39,21 @@ typedef struct WorkerArgs
 {
     Queue *q;
     BibData *bib;
+    FILE *log_file;
 } WorkerArgs;
 
 void *worker(void *arg);
 void sendData(int clientFD, char type, char *data);
 char readData(int clientFD, char **data);
+void checkArgs(int argc, char *argv[]);
+
+// TODO - quando il client riceve i record risultanti sono sempre preceduti da un qualche carattere a cazzo di cane
 
 int main(int argc, char *argv[])
 {
-    // check the input arguments
-    if (argc < 4) {
-        printf("ERROR: misssing arguments\n%s", USAGE);
-        exit(EXIT_FAILURE);
-    } else if (argc > 4) {
-        printf("ERROR: too many arguments\n%s", USAGE);
-        exit(EXIT_FAILURE);
-    }
-    
+    // TODO - check agrs types
+    checkArgs(argc, argv);
+
     char *name_bib = argv[1];
     char *bib_path = argv[2];
     int W = atoi(argv[3]);
@@ -64,10 +64,14 @@ int main(int argc, char *argv[])
     // read the record file
     BibData *bib = createBibData(bib_path);
     // if NULL the file on the path given doesn't exits
-    if(bib == NULL) {
+    if (bib == NULL)
+    {
         printf("ERROR: the given path does not correspond to any existing file\n");
         exit(EXIT_FAILURE);
     }
+
+    // create log file
+    FILE *log_file = openLogFile(name_bib);
 
     // * socket creation
     int server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -109,6 +113,7 @@ int main(int argc, char *argv[])
         WorkerArgs *args = (WorkerArgs *)malloc(sizeof(WorkerArgs));
         args->q = q;
         args->bib = bib;
+        args->log_file = log_file;
         pthread_create(&tid, NULL, worker, (void *)args);
     }
 
@@ -125,7 +130,8 @@ int main(int argc, char *argv[])
         char *data, type = readData(client_fd, &data);
 
         Request *req = requestFormatCheck(data, type, client_fd);
-        if (req == NULL) {
+        if (req == NULL)
+        {
             req = (Request *)malloc(sizeof(Request));
             req->senderFD = client_fd;
             req->size = -1;
@@ -143,37 +149,44 @@ int main(int argc, char *argv[])
 
 void *worker(void *arg)
 {
+    // take data from arg data structure
     Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
+    FILE *log_file = ((WorkerArgs *)arg)->log_file;
 
+    // take request from shared data queue
     Request *req = ((Request *)queue_pop(queue));
 
     if (req->size == -1)
     {
+        // request error
         sendData(req->senderFD, MSG_ERROR, "");
     }
     else
     {
-
+        // search in the shared data structure
         Response *response = searchRecord(bib, req);
 
         if (response == NULL)
         {
+            // nothing find
             sendData(req->senderFD, MSG_NO, "");
         }
         else
         {
-            char type = MSG_RECORD;
             int size = 0;
             char *data = (char *)malloc(sizeof(char));
             for (int i = 0; i < response->size; i++)
             {
+                // reallocation of data for the string to append
                 data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 1);
                 size += strlen(bib->book[response->pos[i]] + 1);
+                // concat the strings
                 strcat(data, bib->book[response->pos[i]]);
                 data[size] = '\n';
             }
 
+            // fix the format
             int i = size;
             while (data[i] == '\n' || data[i] == '\0')
             {
@@ -184,8 +197,20 @@ void *worker(void *arg)
                 i--;
             }
             data[++size] = '\0';
+            i = 0;
+            while(data[i] < 65 || data[i] > 122) {
+                data++;
+                i++;
+            }
 
+            // send data to client
             sendData(req->senderFD, MSG_RECORD, data);
+
+            // TODO - update log file
+            // @ temp test
+            printf("\n|%s|\n", data); // 65 to 122
+            req->loan?logLoan(log_file, data, response->size>=0?true:false):logQuery(log_file, data, response->size);
+
         }
     }
 
@@ -234,7 +259,7 @@ void sendData(int clientFD, char type, char *data)
 */
 char readData(int clientFD, char **data)
 {
-    char type, *l = (char *)malloc(10 * sizeof(char));
+    char type;
     // read type
     int length, bytesread = read(clientFD, &type, sizeof(char));
     if (bytesread == -1)
@@ -255,4 +280,34 @@ char readData(int clientFD, char **data)
     }
     (*data)[bytesread] = '\0';
     return type;
+}
+
+// TODO - desc
+void checkArgs(int argc, char *argv[])
+{
+    // check the input arguments
+    if (argc < 4)
+    {
+        printf("ERROR: misssing arguments\n%s", USAGE);
+        exit(EXIT_FAILURE);
+    }
+    else if (argc > 4)
+    {
+        printf("ERROR: too many arguments\n%s", USAGE);
+        exit(EXIT_FAILURE);
+    }
+
+    // check name_bib
+    if (strlen(argv[1]) > MAX_NAME_LENGTH)
+    {
+        printf("ERROR: bib name given is too long, the maximum is 10 characters\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // check W
+    if (atoi(argv[3]) < 1 || atoi(argv[3]) > 5)
+    {
+        printf("ERROR: W must be between 1 and 5\n");
+        exit(EXIT_FAILURE);
+    }
 }

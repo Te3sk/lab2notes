@@ -45,7 +45,6 @@ FILE *fileFormatCheck(char *path)
 
         while (token != NULL)
         {
-            int i = 0;
             // delete spaces char
             while (token[0] == ' ')
             {
@@ -105,7 +104,6 @@ BibData *createBibData(char *path)
         exit(EXIT_FAILURE);
     }
 
-    int i = 0;
     bib->size = 0;
 
     bib->book[bib->size] = (char *)malloc((MAX_LENGTH + 1) * sizeof(char));
@@ -151,6 +149,7 @@ bool recordMatch(char *record, Request *req)
         // check if the field_codes match
         if (strncasecmp(req->field_codes[0], token, strlen(req->field_codes[0])) == 0)
         {
+
             // skip field_codes, spaces and ':' char
             token += strlen(req->field_codes[0]);
             while (isspace(token[0]) || token[0] == ':')
@@ -240,7 +239,6 @@ Response *searchRecord(BibData *bib, Request *req)
         perror(THIS_PATH "searchRecord - response->pos allocation failed");
         exit(EXIT_FAILURE);
     }
-    int count = 0;
     for (int i = 0; i < bib->size; i++)
     {
         if (recordMatch(bib->book[i], req))
@@ -301,9 +299,9 @@ bool loanCheck(BibData *bib, Response *response)
             pos[19] = '\0';
 
             time_t now;
-            struct tm *tm_now;
+            // struct tm *tm_now;
             now = time(NULL);
-            tm_now = localtime(&now);
+            // tm_now = localtime(&now);
 
             // parse the string
             struct tm tm_data;

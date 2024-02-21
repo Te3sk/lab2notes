@@ -4,7 +4,7 @@ SERVER_SRC = server.c
 CLIENT_SRC = client.c
 SERVER_BIN = server.out
 CLIENT_BIN = client.out
-LIB_SRC = lib/bib_ds.c lib/pars.c lib/queue.client
+LIB_SRC = lib/bib_ds.c lib/pars.c lib/queue.c
 
 all: server client
 
