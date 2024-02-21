@@ -13,7 +13,7 @@
     `path` is the path of the txt file
 ### Return value
     If the file is totally right (not empty and right format) return 1
-    If the file is empty or of the wrong format return NULL
+    If the file is empty, doesn't exists or of the wrong format return NULL
 */
 FILE *fileFormatCheck(char *path)
 {
@@ -22,9 +22,7 @@ FILE *fileFormatCheck(char *path)
     FILE *fp = fopen(path, "rb");
     if (fp == NULL)
     {
-        // error handling
-        perror("fopen failed");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     // read the file line by line

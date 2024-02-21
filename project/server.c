@@ -16,6 +16,9 @@
 #define MAX_CLIENTS 10 // temp, it must be 40
 #define MAX_LENGTH 500 // TODO - understand how many bytes give
 
+// TODO - per ora non lancia con 'bibserver' ma con './bibserver'
+#define USAGE "Run with:\n\n\t$ bibserver name_bib file_record W\n\n\'name_bib\' is the name of the library, \'file_record\' is the path of the file containing the records, \'W\' is the number of workers.\n"
+
 // Messaggio per richiedere i record che contengono alcune parole specifiche in alcuni campi
 #define MSG_QUERY 'Q'
 // Messaggio per richiedere il prestito di tutti i record che contengono alcune parole specifiche in alcuni campi
@@ -28,7 +31,7 @@
 #define MSG_ERROR 'E'
 
 // TODO - temp, W have to be insert by user in program launch
-#define W 4
+// #define W 4
 
 typedef struct WorkerArgs
 {
@@ -40,9 +43,31 @@ void *worker(void *arg);
 void sendData(int clientFD, char type, char *data);
 char readData(int clientFD, char **data);
 
-int main()
+int main(int argc, char *argv[])
 {
-    BibData *bib = createBibData("bibData/bib1.txt");
+    // check the input arguments
+    if (argc < 4) {
+        printf("ERROR: misssing arguments\n%s", USAGE);
+        exit(EXIT_FAILURE);
+    } else if (argc > 4) {
+        printf("ERROR: too many arguments\n%s", USAGE);
+        exit(EXIT_FAILURE);
+    }
+    
+    char *name_bib = argv[1];
+    char *bib_path = argv[2];
+    int W = atoi(argv[3]);
+
+    // @ temp test
+    printf("%s\n%s\n%d\n", name_bib, bib_path, W);
+
+    // read the record file
+    BibData *bib = createBibData(bib_path);
+    // if NULL the file on the path given doesn't exits
+    if(bib == NULL) {
+        printf("ERROR: the given path does not correspond to any existing file\n");
+        exit(EXIT_FAILURE);
+    }
 
     // * socket creation
     int server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
