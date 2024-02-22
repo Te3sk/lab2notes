@@ -14,6 +14,7 @@
 
 #define SOCKET_PATH "./socket/temp_sock"
 #define THIS_PATH "server.c/"
+#define CONFIG_FILE "./config/bib.conf"
 #define MAX_CLIENTS 10                      // temp, it must be 40
 #define MAX_LENGTH 500                      // TODO - understand how many bytes give
 #define MAX_NAME_LENGTH (10 * sizeof(char)) // TODO - understrand how many
@@ -32,6 +33,8 @@
 // MSG ERROR Messaggio di errore. Questo tipo di messaggio viene spedito quando si è verificato un errore nel processare la richiesta del client.
 #define MSG_ERROR 'E'
 
+// initalization of termination flag
+int termination_flag = 0;
 // TODO - temp, W have to be insert by user in program launch
 // #define W 4
 
@@ -40,18 +43,19 @@ typedef struct WorkerArgs
     Queue *q;
     BibData *bib;
     FILE *log_file;
+    int *term_flag;
 } WorkerArgs;
 
 void *worker(void *arg);
 void sendData(int clientFD, char type, char *data);
 char readData(int clientFD, char **data);
 void checkArgs(int argc, char *argv[]);
+void signalHandler(int signum);
 
 // TODO - quando il client riceve i record risultanti sono sempre preceduti da un qualche carattere a cazzo di cane
 
 int main(int argc, char *argv[])
 {
-    // TODO - check agrs types
     checkArgs(argc, argv);
 
     char *name_bib = argv[1];
@@ -60,6 +64,10 @@ int main(int argc, char *argv[])
 
     // @ temp test
     printf("%s\n%s\n%d\n", name_bib, bib_path, W);
+
+    // termination handler registration
+    signal(SIGINT, signalHandler);
+    signal(SIGTERM, signalHandler);
 
     // read the record file
     BibData *bib = createBibData(bib_path);
@@ -85,6 +93,9 @@ int main(int argc, char *argv[])
     // * socket address definition
     struct sockaddr_un server_address;
     server_address.sun_family = AF_UNIX;
+    char *socket_path = (char*)malloc(strlen(name_bib) + strlen("socket/"));
+    strcpy(socket_path, "socket/");
+    strcat(socket_path, name_bib);
     strcpy(server_address.sun_path, SOCKET_PATH);
 
     // * association of the socket to the address
@@ -103,22 +114,27 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
+    // write server info in the conf file
+    writeServerInfo(name_bib, socket_path);
+
     Queue *q = (Queue *)malloc(sizeof(Queue));
     queue_init(q);
 
     // thread creation
+    pthread_t tid[W];
     for (int i = 0; i < W; i++)
     {
-        pthread_t tid;
         WorkerArgs *args = (WorkerArgs *)malloc(sizeof(WorkerArgs));
         args->q = q;
         args->bib = bib;
         args->log_file = log_file;
-        pthread_create(&tid, NULL, worker, (void *)args);
+        args->term_flag = &termination_flag;
+        pthread_create(&tid[i], NULL, worker, (void *)args);
     }
 
+    // TODO - poi dovrà essere gestito con il segnale di terminazione
     // * main cycle
-    while (1)
+    while ((!termination_flag))
     {
         int client_fd = accept(server_socket, NULL, NULL);
         if (client_fd == -1)
@@ -140,7 +156,18 @@ int main(int argc, char *argv[])
         queue_push((void *)req, q);
     }
 
-    // TODO - poi dovrà essere gestito con il segnale di terminazione
+    for (int i = 0; i < W; i++)
+    {
+        pthread_join(tid[i], NULL);
+    }
+
+    // TODO - registra nuovo file_record
+    if(updateRecordFile(bib_path, bib) == NULL){
+        // error handling
+        perror(THIS_PATH"main - updateRecordFile failed");
+        exit(EXIT_FAILURE);
+    }
+
     close(server_socket);
     unlink(SOCKET_PATH);
 
@@ -153,64 +180,69 @@ void *worker(void *arg)
     Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
     FILE *log_file = ((WorkerArgs *)arg)->log_file;
+    int *term_flag = ((WorkerArgs *)arg)->term_flag;
 
-    // take request from shared data queue
-    Request *req = ((Request *)queue_pop(queue));
-
-    if (req->size == -1)
+    while ((!(*term_flag)))
     {
-        // request error
-        sendData(req->senderFD, MSG_ERROR, "");
-    }
-    else
-    {
-        // search in the shared data structure
-        Response *response = searchRecord(bib, req);
+        // take request from shared data queue
+        Request *req = ((Request *)queue_pop(queue));
 
-        if (response == NULL)
+        if (req->size == -1)
         {
-            // nothing find
-            sendData(req->senderFD, MSG_NO, "");
+            // request error
+            sendData(req->senderFD, MSG_ERROR, "");
         }
         else
         {
-            int size = 0;
-            char *data = (char *)malloc(sizeof(char));
-            for (int i = 0; i < response->size; i++)
-            {
-                // reallocation of data for the string to append
-                data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 1);
-                size += strlen(bib->book[response->pos[i]] + 1);
-                // concat the strings
-                strcat(data, bib->book[response->pos[i]]);
-                data[size] = '\n';
-            }
+            // search in the shared data structure
+            Response *response = searchRecord(bib, req);
 
-            // fix the format
-            int i = size;
-            while (data[i] == '\n' || data[i] == '\0')
+            if (response == NULL)
             {
-                if (data[i] == '\n')
+                // nothing find
+                sendData(req->senderFD, MSG_NO, "");
+            }
+            else
+            {
+                int size = 0;
+                char *data = (char *)malloc(sizeof(char));
+                for (int i = 0; i < response->size; i++)
                 {
-                    size--;
+                    // reallocation of data for the string to append
+                    data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 1);
+                    size += strlen(bib->book[response->pos[i]] + 1);
+                    // concat the strings
+                    strcat(data, bib->book[response->pos[i]]);
+                    data[size] = '\n';
                 }
-                i--;
+
+                // fix the format
+                int i = size;
+                while (data[i] == '\n' || data[i] == '\0')
+                {
+                    if (data[i] == '\n')
+                    {
+                        size--;
+                    }
+                    i--;
+                }
+                data[++size] = '\0';
+                i = 0;
+                while (data[i] < 65 || data[i] > 122)
+                {
+                    data++;
+                    i++;
+                }
+
+                // send data to client
+                sendData(req->senderFD, MSG_RECORD, data);
+
+                // TODO - update log file
+                // @ temp test
+                printf("\n|%s|\n", data); // 65 to 122
+                // aggiorna file di log
+                req->loan ? logLoan(log_file, data, response->size >= 0 ? true : false) : logQuery(log_file, data, response->size);
             }
-            data[++size] = '\0';
-            i = 0;
-            while(data[i] < 65 || data[i] > 122) {
-                data++;
-                i++;
-            }
-
-            // send data to client
-            sendData(req->senderFD, MSG_RECORD, data);
-
-            // TODO - update log file
-            // @ temp test
-            printf("\n|%s|\n", data); // 65 to 122
-            req->loan?logLoan(log_file, data, response->size>=0?true:false):logQuery(log_file, data, response->size);
-
         }
     }
 
@@ -283,6 +315,14 @@ char readData(int clientFD, char **data)
 }
 
 // TODO - desc
+void signalHandler(int signum)
+{
+    termination_flag = 1;
+    // @ temp test
+    printf("Termination signal received\n");
+}
+
+// TODO - desc
 void checkArgs(int argc, char *argv[])
 {
     // check the input arguments
@@ -310,4 +350,24 @@ void checkArgs(int argc, char *argv[])
         printf("ERROR: W must be between 1 and 5\n");
         exit(EXIT_FAILURE);
     }
+}
+
+// TODO - desc
+void writeServerInfo(const char *name, const char *socket_path) {
+    FILE *config_file = fopen(CONFIG_FILE, "a"); // Open the file in append mod
+    if (config_file == NULL) {
+        // @ temp test
+        perror(THIS_PATH "writeServerInfo - Error opening config file");
+        // If cannot open the file, try to create it
+        // // config_file = fopen(CONFIG_FILE, "w"); // Apre il file in modalità scrittura
+        // // if (config_file == NULL) {
+        // //     perror("Error opening/creating config file");
+        // //     exit(EXIT_FAILURE);
+        // // }
+    }
+
+    // Write the server infos in the configuration file
+    fprintf(config_file, "%s %s\n", name, socket_path);
+
+    fclose(config_file);
 }

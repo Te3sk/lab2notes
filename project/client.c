@@ -14,6 +14,7 @@
 #define THIS_PATH "client.c/"
 #define BUFFER_SIZE 500 // TODO - understand how many bytes give
 #define USAGE_STRING "Usage: ./client.c --filed=\"value\" -p\n\tonly one field per request, \n\tp indicates loan request"
+#define CONFIG_FILE "./config/bib.conf"
 
 // Messaggio per richiedere i record che contengono alcune parole specifiche in alcuni campi
 #define MSG_QUERY 'Q'
@@ -28,44 +29,58 @@
 
 #define SOCKET_PATH "./socket/temp_sock"
 
+typedef struct
+{
+    char *name;
+    char *socket_path;
+} ServerInfo;
+
 void sendData(int socketFD, char type, char *data);
 char *readData(int socketFD);
+int readServerInfo(ServerInfo *ServerInfo);
 
 int main(int argc, char *argv[])
 {
     bool loan;
     char *parameters = checkInputFormatNparser(argc, argv, &loan);
 
-    int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (socket_fd == -1)
+    // read servers infos from conf file
+    ServerInfo *serverInfo;
+    int serverNum = readServerInfo(&serverInfo);
+
+    for (int i = 0; i < serverNum; i++)
     {
-        // error handling
-        perror(THIS_PATH "main - socket failed");
-        exit(EXIT_FAILURE);
+        int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (socket_fd == -1)
+        {
+            // error handling
+            perror(THIS_PATH "main - socket failed");
+            exit(EXIT_FAILURE);
+        }
+
+        struct sockaddr_un server_addr;
+        server_addr.sun_family = AF_UNIX;
+        strcpy(server_addr.sun_path, serverInfo[i].socket_path);
+
+        if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+        {
+            // error handling
+            perror(THIS_PATH "main - connect failed");
+            exit(EXIT_FAILURE);
+        }
+
+        sendData(socket_fd, loan ? MSG_LOAN : MSG_QUERY, parameters);
+
+        char *response = readData(socket_fd);
+
+        if (response != NULL)
+        {
+            // TODO - capire formato messaggio finale e cambiare
+            printf("Dal server %s:\n\t%s\n", serverInfo[i].name, response);
+        }
+
+        close(socket_fd);
     }
-
-    struct sockaddr_un server_addr;
-    server_addr.sun_family = AF_UNIX;
-    strcpy(server_addr.sun_path, SOCKET_PATH);
-
-    if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
-    {
-        // error handling
-        perror(THIS_PATH "main - connect failed");
-        exit(EXIT_FAILURE);
-    }
-
-    sendData(socket_fd, loan ? MSG_LOAN : MSG_QUERY, parameters);
-
-    char *response = readData(socket_fd);
-
-    if (response != NULL)
-    {
-        // TODO - capire formato messaggio finale e cambiare
-        printf("Dal server:\n\t%s\n", response);
-    }
-
-    close(socket_fd);
 
     return 0;
 }
@@ -151,4 +166,33 @@ char *readData(int socketFD)
         printf("ERROR: invalid type\n");
         exit(EXIT_FAILURE);
     }
+}
+
+// TODO - desc
+int readServerInfo(ServerInfo *serverInfo)
+{
+    FILE *config_file = fopen(CONFIG_FILE, "r");
+    if (config_file == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "readServerInfo - fopen failed");
+        exit(EXIT_FAILURE);
+    }
+
+    int count = 0;
+    serverInfo = (ServerInfo *)malloc(sizeof(ServerInfo) * (count + 1));
+    if (serverInfo == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "readServerInfo - serverInfo allocation failed");
+        exit(EXIT_FAILURE);
+    }
+    while (fscanf(config_file, "%s %s", serverInfo[count].name, serverInfo[count].socket_path) == 2)
+    {
+        count++;
+        serverInfo = (ServerInfo *)realloc(serverInfo, sizeof(ServerInfo) * (count + 1));
+    }
+
+    fclose(config_file);
+    return serverInfo;
 }

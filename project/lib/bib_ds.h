@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <time.h>
 
+
 #include "pars.h"
 
 /*
@@ -19,6 +20,7 @@ typedef struct
 {
     char **book;
     int size;
+    pthread_mutex_t mutex;
 } BibData;
 
 BibData *createBibData(char *path);
@@ -36,5 +38,7 @@ void loanUpdate(BibData *bib, Response *response);
 void updateDate(struct tm *date, int days);
 
 Request *requestFormatCheck(char *request, char type, int senderFD);
+
+int updateRecordFile(char *path, BibData *bib);
 
 #endif

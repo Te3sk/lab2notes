@@ -113,6 +113,8 @@ BibData *createBibData(char *path)
         bib->book[bib->size] = (char *)malloc((MAX_LENGTH + 1) * sizeof(char));
     }
 
+    pthread_mutex_init(&(bib->mutex));
+
     return bib;
 }
 
@@ -127,6 +129,7 @@ BibData *createBibData(char *path)
 */
 bool recordMatch(char *record, Request *req)
 {
+
     bool found = false;
     // make a copy to not modify the original
     char *recordCopy = (char *)malloc(strlen(record) * sizeof(char));
@@ -239,6 +242,7 @@ Response *searchRecord(BibData *bib, Request *req)
         perror(THIS_PATH "searchRecord - response->pos allocation failed");
         exit(EXIT_FAILURE);
     }
+    pthread_mutex_loc(&(bib->mutex));
     for (int i = 0; i < bib->size; i++)
     {
         if (recordMatch(bib->book[i], req))
@@ -265,6 +269,8 @@ Response *searchRecord(BibData *bib, Request *req)
         }
     }
 
+    pthread_mutex_unlock(&(bib->mutex));
+
     return response;
 }
 
@@ -275,7 +281,7 @@ Response *searchRecord(BibData *bib, Request *req)
     - `BibData *bib` is the pointer to the bib datastructure (all records)
     - `Response *response` is the datastructure with the response for answare to the client
 ### Return value
-    Returne `true` if there isn't the field 'prestito' or if the loan is expired (30 days from the date)
+    Returne `true` if there isn't the field 'prestito' or if the loan is expired (30 days or more from the date)
     Returne `false` if the loan isn't expired
 */
 bool loanCheck(BibData *bib, Response *response)
@@ -299,9 +305,7 @@ bool loanCheck(BibData *bib, Response *response)
             pos[19] = '\0';
 
             time_t now;
-            // struct tm *tm_now;
             now = time(NULL);
-            // tm_now = localtime(&now);
 
             // parse the string
             struct tm tm_data;
@@ -311,18 +315,18 @@ bool loanCheck(BibData *bib, Response *response)
             // add 30 days
             updateDate(&tm_data, 30);
 
-            // data originale 13/7/2012
-
             // comparation
             time_t time_data = mktime(&tm_data);
             double diff = difftime(time_data, now);
 
             if (diff <= 0)
             {
+                // time_data <= now
                 return true;
             }
             else
             {
+                // time_data > now
                 return false;
             }
         }
@@ -541,4 +545,76 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         }
     }
     return req;
+}
+
+/*
+### Description
+    Update the file_record from bibData datastructure
+### Parameters
+    - `char *path` is the path of the file_record
+    - `BibData *bib` is the datastructure with the info to overwrite
+### Return value
+    On success return 1
+    On fail print an error msg and return -1
+*/
+int updateRecordFile(char *path, BibData *bib)
+{
+    FILE *fp = fopen(path, "w");
+    if (fp == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "updateRecordFile - fopen failed");
+        return -1;
+    }
+
+    for (int i = 0; i < bib->size; i++)
+    {
+        // make a copy to mantain the original string
+        char *copy = (char *)malloc(sizeof(char) * strlen(bib->book[i]));
+        if (copy == NULL)
+        {
+            // error handling
+            perror(THIS_PATH "updateFileRecord - copy allocation failed");
+            return -1;
+        }
+        strcpy(copy, bib->book[i]);
+        // search for "prestito" field
+        char *pos = strcasestr(copy, "prestito:");
+        if (pos != NULL)
+        {
+            // skip "prestito" and delete initial spaces if there are
+            pos += strlen("prestito:");
+            while (isspace(pos[0]))
+            {
+                pos++;
+            }
+            pos[19] = '\0';
+
+            time_t now;
+            now = time(NULL);
+
+            // parse the string
+            struct tm tm_data;
+            memset(&tm_data, 0, sizeof(struct tm));
+            strptime(pos, "%d-%m-%Y %H:%M:%S", &tm_data);
+
+            // comparation
+            time_t time_data = mktime(&tm_data);
+            double diff = difftime(time_data, now);
+
+            if (diff <= 0) {
+                // prestito scaduto -> rimuovi il campo prestito
+                char *start_prest = strstr(bib->book[i], "prestito:");
+                char *end_prest = strstr(bib->book[i], ";");
+                int remove_length = end_prest - start_prest;
+                memmove(start_prest, end_prest, strlen(end_prest));
+            }
+        }
+
+        // write the record in the file
+        fputs(bib->book[i], fp);
+    }
+
+    fclose(fp);
+    return 1;
 }
