@@ -19,7 +19,9 @@
     - [x] si registra il nuovo file record
     - [x] si elimina la socket del server
 - [ ] la lista di tutti i server disponibili è inclusa in un file di configurazione (`bib.conf`) che include tutti i nomi dei vari server attivi, e i dati necessari per la connessione ai rispettivi socket
-    - [ ] Il client legge il file `bib.conf`. Poi interroga tutte le biblioteche connettendosi sulla socket e mandando una richeista
+    - [x] quando il server si avvia e apre la socket la scrive nel file `bib.conf`
+    - [ ] quando il server termina elimina il suo nome dal file `bib.conf`
+    - [x] Il client legge il file `bib.conf`. Poi interroga tutte le biblioteche connettendosi sulla socket e mandando una richeista
 - [ ] PROTOCOLLO DI COMUNICAZIONE: capire, in caso di MSG_ERROR o MSG_NO, cosa fa/stampa il client
 - [ ] SCRIPT DI CONTROLLO: `bibaccess` è uno script bash che elabora off-line i file di log generati dai bibserver
     - [ ] può essere invocato con due opzioni: 

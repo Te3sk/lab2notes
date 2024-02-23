@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <time.h>
+#include <pthread.h>
 
 
 #include "pars.h"

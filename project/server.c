@@ -34,7 +34,7 @@
 #define MSG_ERROR 'E'
 
 // initalization of termination flag
-int termination_flag = 0;
+bool termination_flag = false;
 // TODO - temp, W have to be insert by user in program launch
 // #define W 4
 
@@ -43,7 +43,7 @@ typedef struct WorkerArgs
     Queue *q;
     BibData *bib;
     FILE *log_file;
-    int *term_flag;
+    bool *term_flag;
 } WorkerArgs;
 
 void *worker(void *arg);
@@ -51,6 +51,8 @@ void sendData(int clientFD, char type, char *data);
 char readData(int clientFD, char **data);
 void checkArgs(int argc, char *argv[]);
 void signalHandler(int signum);
+void writeServerInfo(const char *name, const char *socket_path);
+void rmServerInfo(const char *name);
 
 // TODO - quando il client riceve i record risultanti sono sempre preceduti da un qualche carattere a cazzo di cane
 
@@ -93,10 +95,13 @@ int main(int argc, char *argv[])
     // * socket address definition
     struct sockaddr_un server_address;
     server_address.sun_family = AF_UNIX;
-    char *socket_path = (char*)malloc(strlen(name_bib) + strlen("socket/"));
+    char *socket_path = (char *)malloc(strlen(name_bib) + strlen("socket/") + strlen("_sock"));
     strcpy(socket_path, "socket/");
     strcat(socket_path, name_bib);
-    strcpy(server_address.sun_path, SOCKET_PATH);
+    strcat(socket_path, "_sock");
+    // @ temp test
+    printf("SOCKET_PATH:%s\n", socket_path);
+    strcpy(server_address.sun_path, socket_path);
 
     // * association of the socket to the address
     if (bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) == -1)
@@ -155,16 +160,26 @@ int main(int argc, char *argv[])
 
         queue_push((void *)req, q);
     }
+    // @ temp test
+    printf("rimozione info da bib.conf\n");
+    rmServerInfo(name_bib);
+
+    // @ temp test
+    printf("attesa join dei thread\n");
 
     for (int i = 0; i < W; i++)
     {
         pthread_join(tid[i], NULL);
     }
 
+    // @ temp test
+    printf("registrazione nuovo file record\n");
+
     // TODO - registra nuovo file_record
-    if(updateRecordFile(bib_path, bib) == NULL){
+    if (updateRecordFile(bib_path, bib) < 0)
+    {
         // error handling
-        perror(THIS_PATH"main - updateRecordFile failed");
+        perror(THIS_PATH "main - updateRecordFile failed");
         exit(EXIT_FAILURE);
     }
 
@@ -176,17 +191,28 @@ int main(int argc, char *argv[])
 
 void *worker(void *arg)
 {
+    // TODO - il server taglia gli ultimi caratteri dei msg che manda al client
     // take data from arg data structure
     Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
     FILE *log_file = ((WorkerArgs *)arg)->log_file;
-    int *term_flag = ((WorkerArgs *)arg)->term_flag;
+    bool *term_flag = ((WorkerArgs *)arg)->term_flag;
 
     while ((!(*term_flag)))
     {
+        if ((*term_flag))
+        {
+            // @ temp test
+            printf("%d\n", *term_flag);
+            break;
+        }
+        else
+        {
+            // @ temp test
+            printf("%d\n", *term_flag);
+        }
         // take request from shared data queue
         Request *req = ((Request *)queue_pop(queue));
-
         if (req->size == -1)
         {
             // request error
@@ -244,9 +270,10 @@ void *worker(void *arg)
                 req->loan ? logLoan(log_file, data, response->size >= 0 ? true : false) : logQuery(log_file, data, response->size);
             }
         }
+        // @ temp test
+        printf("TERMFLAG: %d\n", *term_flag);
     }
-
-    exit(1);
+    return NULL;
 }
 
 /*
@@ -317,9 +344,9 @@ char readData(int clientFD, char **data)
 // TODO - desc
 void signalHandler(int signum)
 {
-    termination_flag = 1;
+    termination_flag = true;
     // @ temp test
-    printf("Termination signal received\n");
+    printf("\nTermination signal received: %d\n", signum);
 }
 
 // TODO - desc
@@ -353,9 +380,13 @@ void checkArgs(int argc, char *argv[])
 }
 
 // TODO - desc
-void writeServerInfo(const char *name, const char *socket_path) {
+void writeServerInfo(const char *name, const char *socket_path)
+{
+    // @ temp test
+    printf("\tscrivo %s %s\n", name, socket_path);
     FILE *config_file = fopen(CONFIG_FILE, "a"); // Open the file in append mod
-    if (config_file == NULL) {
+    if (config_file == NULL)
+    {
         // @ temp test
         perror(THIS_PATH "writeServerInfo - Error opening config file");
         // If cannot open the file, try to create it
@@ -370,4 +401,47 @@ void writeServerInfo(const char *name, const char *socket_path) {
     fprintf(config_file, "%s %s\n", name, socket_path);
 
     fclose(config_file);
+}
+
+// TODO - desc
+void rmServerInfo(const char *name)
+{
+    FILE *config_file = fopen(CONFIG_FILE, "rw");
+    // TODO - error handling
+
+    FILE *temp_file = fopen("temp.txt", "w");
+    // TODO - error handling
+
+    char *temp_name = (char *)malloc(sizeof(char) * 100);
+    char *temp_path = (char *)malloc(sizeof(char) * 100);
+    while (fscanf(config_file, "%s", temp_name) == 1)
+    {
+        // @ temp test
+        printf("%s\n", temp_name);
+        if (strcmp(temp_name, name) == 0)
+        {
+            // @ temp test
+            printf("è lui\n");
+        }
+        else
+        {
+            fprintf(temp_file, "%s %s\n", temp_name, temp_path);
+        }
+    }
+    fclose(config_file);
+    fclose(temp_file);
+
+    sleep(5);
+
+    if (remove(CONFIG_FILE) != 0)
+    {
+        perror("Errore nella rimozione del file originale");
+        exit(EXIT_FAILURE);
+    }
+
+    if (rename("temp.txt", CONFIG_FILE) != 0)
+    {
+        perror("Errore nel rinominare il file temporaneo");
+        exit(EXIT_FAILURE);
+    }
 }

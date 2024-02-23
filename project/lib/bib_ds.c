@@ -105,7 +105,7 @@ BibData *createBibData(char *path)
     }
 
     bib->size = 0;
-
+ 
     bib->book[bib->size] = (char *)malloc((MAX_LENGTH + 1) * sizeof(char));
     while (fgets(bib->book[bib->size], MAX_LENGTH, fp) != NULL)
     {
@@ -113,7 +113,7 @@ BibData *createBibData(char *path)
         bib->book[bib->size] = (char *)malloc((MAX_LENGTH + 1) * sizeof(char));
     }
 
-    pthread_mutex_init(&(bib->mutex));
+    pthread_mutex_init(&(bib->mutex), NULL);
 
     return bib;
 }
@@ -242,7 +242,7 @@ Response *searchRecord(BibData *bib, Request *req)
         perror(THIS_PATH "searchRecord - response->pos allocation failed");
         exit(EXIT_FAILURE);
     }
-    pthread_mutex_loc(&(bib->mutex));
+    pthread_mutex_lock(&(bib->mutex));
     for (int i = 0; i < bib->size; i++)
     {
         if (recordMatch(bib->book[i], req))
@@ -281,8 +281,8 @@ Response *searchRecord(BibData *bib, Request *req)
     - `BibData *bib` is the pointer to the bib datastructure (all records)
     - `Response *response` is the datastructure with the response for answare to the client
 ### Return value
-    Returne `true` if there isn't the field 'prestito' or if the loan is expired (30 days or more from the date)
-    Returne `false` if the loan isn't expired
+    Returne `true` if there isn't the field 'prestito' or if the loan is expired (30 days or more from the date) - THE BOOK CAN BE LOANED
+    Returne `false` if the loan isn't expired - THE BOOK CAN'T BE LOANED
 */
 bool loanCheck(BibData *bib, Response *response)
 {
@@ -335,6 +335,7 @@ bool loanCheck(BibData *bib, Response *response)
             return true;
         }
     }
+    return true;
 }
 
 /*
@@ -606,7 +607,7 @@ int updateRecordFile(char *path, BibData *bib)
                 // prestito scaduto -> rimuovi il campo prestito
                 char *start_prest = strstr(bib->book[i], "prestito:");
                 char *end_prest = strstr(bib->book[i], ";");
-                int remove_length = end_prest - start_prest;
+                // // int remove_length = end_prest - start_prest;
                 memmove(start_prest, end_prest, strlen(end_prest));
             }
         }

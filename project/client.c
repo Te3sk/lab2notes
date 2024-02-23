@@ -37,16 +37,20 @@ typedef struct
 
 void sendData(int socketFD, char type, char *data);
 char *readData(int socketFD);
-int readServerInfo(ServerInfo *ServerInfo);
+ServerInfo *readServerInfo(int *count);
 
 int main(int argc, char *argv[])
 {
+
     bool loan;
     char *parameters = checkInputFormatNparser(argc, argv, &loan);
 
     // read servers infos from conf file
-    ServerInfo *serverInfo;
-    int serverNum = readServerInfo(&serverInfo);
+    int serverNum;
+    ServerInfo *serverInfo = readServerInfo(&serverNum);
+
+    // @ temp test
+    printf("letti %d server\n", serverNum);
 
     for (int i = 0; i < serverNum; i++)
     {
@@ -58,6 +62,8 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
 
+        // @ temp test
+        printf("try to connect with %s on %s\n", serverInfo[i].name, serverInfo[i].socket_path );
         struct sockaddr_un server_addr;
         server_addr.sun_family = AF_UNIX;
         strcpy(server_addr.sun_path, serverInfo[i].socket_path);
@@ -169,7 +175,7 @@ char *readData(int socketFD)
 }
 
 // TODO - desc
-int readServerInfo(ServerInfo *serverInfo)
+ServerInfo *readServerInfo(int *count)
 {
     FILE *config_file = fopen(CONFIG_FILE, "r");
     if (config_file == NULL)
@@ -179,20 +185,35 @@ int readServerInfo(ServerInfo *serverInfo)
         exit(EXIT_FAILURE);
     }
 
-    int count = 0;
-    serverInfo = (ServerInfo *)malloc(sizeof(ServerInfo) * (count + 1));
+    *count = 0;
+    ServerInfo *serverInfo = (ServerInfo *)malloc(sizeof(ServerInfo) * (*count + 1));
     if (serverInfo == NULL)
     {
         // error handling
         perror(THIS_PATH "readServerInfo - serverInfo allocation failed");
         exit(EXIT_FAILURE);
     }
-    while (fscanf(config_file, "%s %s", serverInfo[count].name, serverInfo[count].socket_path) == 2)
+    char*temp_name = (char*)malloc(sizeof(char) * 100);
+    char*temp_path = (char*)malloc(sizeof(char) * 100);
+
+    // TODO - capire perché si invertono nome e path
+    while (fscanf(config_file, "%s %s", temp_path, temp_name) == 2)
     {
-        count++;
-        serverInfo = (ServerInfo *)realloc(serverInfo, sizeof(ServerInfo) * (count + 1));
+        // @ temp test
+        printf("\tname:%s|path;%s\n", temp_name, temp_path);
+        serverInfo[*count].name = (char *)malloc(sizeof(char) * (strlen(temp_name) + 1));
+        strcpy(serverInfo[*count].name, temp_name);
+        serverInfo[*count].name[strlen(temp_name)] = '\0';
+        serverInfo[*count].socket_path = (char *)malloc(sizeof(char) * (strlen(temp_path) + 1));
+        strcpy(serverInfo[*count].socket_path, temp_path);
+        serverInfo[*count].socket_path[strlen(temp_path)] = '\0';
+        // @ temp test
+        printf("letto %s %s\n", serverInfo[*count].name, serverInfo[*count].socket_path);
+        (*count)++;
+        serverInfo = (ServerInfo *)realloc(serverInfo, sizeof(ServerInfo) * (*count + 1));
     }
 
     fclose(config_file);
+    // @ temp test
     return serverInfo;
 }

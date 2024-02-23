@@ -23,16 +23,22 @@ void queue_init(Queue *q)
 */
 void queue_destroy(Queue *q)
 {
+    pthread_mutex_lock(&(q->mutex));
+
+    // empty the queue
+    Node *current = q->head;
+    while (current != NULL)
+    {
+        Node *temp = current;
+        current = current->next;
+        // free data if it's allocated
+        free(temp->data);
+        // free node
+        free(temp);
+    }
     // destroy the mutex and condition variable
     pthread_mutex_destroy(&(q->mutex));
     pthread_cond_destroy(&(q->notEmpty));
-    // empty the queue
-    while (q->head)
-    {
-        Node *temp = q->head;
-        q->head = q->head->next;
-    }
-    q->tail = NULL;
 }
 
 /*
