@@ -48,6 +48,7 @@ typedef struct WorkerArgs
     Queue *q;
     BibData *bib;
     FILE *log_file;
+    pthread_t tid;
     // bool *term_flag;
 } WorkerArgs;
 
@@ -69,11 +70,9 @@ int main(int argc, char *argv[])
     bib_path = argv[2];
     W = atoi(argv[3]);
 
-    // @ temp test
-    printf("%s\n%s\n%d\n", name_bib, bib_path, W);
-
     // termination handler registration
-    signal(SIGINT, signalHandler);
+    // TODO - segnale di terminazione (quando fatto levare parametro tid da queue_pop)
+    // signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
 
     // read the record file
@@ -104,8 +103,6 @@ int main(int argc, char *argv[])
     strcpy(socket_path, "socket/");
     strcat(socket_path, name_bib);
     strcat(socket_path, "_sock");
-    // @ temp test
-    printf("SOCKET_PATH:%s\n", socket_path);
     strcpy(server_address.sun_path, socket_path);
 
     // * association of the socket to the address
@@ -138,6 +135,7 @@ int main(int argc, char *argv[])
         args->q = q;
         args->bib = bib;
         args->log_file = log_file;
+        args->tid = i;
         // args->term_flag = &termination_flag;
         pthread_create(&tid[i], NULL, worker, (void *)args);
     }
@@ -165,31 +163,6 @@ int main(int argc, char *argv[])
 
         queue_push((void *)req, q);
     }
-    // @ temp test
-    printf("rimozione info da bib.conf\n");
-    rmServerInfo(name_bib);
-
-    // @ temp test
-    printf("attesa join dei thread\n");
-
-    for (int i = 0; i < W; i++)
-    {
-        pthread_join(tid[i], NULL);
-    }
-
-    // @ temp test
-    printf("registrazione nuovo file record\n");
-
-    // TODO - registra nuovo file_record
-    if (updateRecordFile(bib_path, bib) < 0)
-    {
-        // error handling
-        perror(THIS_PATH "main - updateRecordFile failed");
-        exit(EXIT_FAILURE);
-    }
-
-    close(server_socket);
-    unlink(SOCKET_PATH);
 
     return 0;
 }
@@ -201,23 +174,24 @@ void *worker(void *arg)
     Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
     FILE *log_file = ((WorkerArgs *)arg)->log_file;
+    pthread_t stid= ((WorkerArgs *)arg)->tid;
     // // bool *term_flag = ((WorkerArgs *)arg)->term_flag;
 
     while (!atomic_load(&termination_flag))
     {
         if (atomic_load(&termination_flag))
         {
-            // @ temp test
-            printf("%d\n", termination_flag);
-            break;
-        }
-        else
-        {
-            // @ temp test
-            printf("%d\n", termination_flag);
+            return NULL;
         }
         // take request from shared data queue
-        Request *req = ((Request *)queue_pop(queue));
+        // @ temp test
+        Request *req = ((Request *)queue_pop(queue, &termination_flag, stid));
+        if (atomic_load(&termination_flag)) {
+            return NULL;
+        }
+        if (req == NULL) {
+            return NULL;
+        }
         if (req->size == -1)
         {
             // request error
@@ -274,8 +248,9 @@ void *worker(void *arg)
                 req->loan ? logLoan(log_file, data, response->size >= 0 ? true : false) : logQuery(log_file, data, response->size);
             }
         }
-        // @ temp test
-        printf("TERMFLAG: %d\n", termination_flag);
+        if (atomic_load(&termination_flag)) {
+            return NULL;
+        }
     }
     return NULL;
 }
@@ -345,7 +320,12 @@ char readData(int clientFD, char **data)
     return type;
 }
 
-// TODO - desc
+/*
+### Description
+    Handler of SIGINT/SIGTERM signal, it does all the things todo before kill the program
+### Parameters
+    - `int signum` is the identifier of the signal
+*/
 void signalHandler(int signum)
 {
     termination_flag = true;
@@ -353,35 +333,49 @@ void signalHandler(int signum)
     printf("\nTermination signal received: %d\n", signum);
     // remove this server infos from conf file
     // @ temp test
-    printf("rimozione info da bib.conf\n");
+    printf("\trimozione info da bib.conf\n");
     rmServerInfo(name_bib);
 
     // TODO - attendere fine di tutti i worker
     // needed: tid[i]
     // @ temp test
-    printf("attesa join dei thread\n");
+    printf("\tattesa join dei thread\n");
     for (int i = 0; i < W; i++)
     {
         pthread_join(tid[i], NULL);
+        // @ temp test
+        printf("terminato thread %d\n", i);
     }
     // TODO - termianre scrittura log file
     // in teoria lo fanno i worker, quindi è compreso nel punto sopra
     // TODO - registrare nuovo record file
     // needed: file record fd, bibData
-    // TODO - error handling
     // @ temp test
-    printf("updating record file\n");
-    updateRecordFile(bib_path, bib);
+    printf("\tupdating record file\n");
+    if (updateRecordFile(bib_path, bib) < 0) {
+        // error handling
+        printf("%ssignalHandler - error updating record file\n", THIS_PATH);
+    }
     // TODO - eliminare la socket del server
     // needed: server socket fd
     // @ temp test
-    printf("chiusura socket\n");
+    printf("\tchiusura socket\n");
     close(server_socket);
+    unlink(SOCKET_PATH);
+    // TODO - registra nuovo file_record
+
+
 
     exit(EXIT_SUCCESS);
 }
 
-// TODO - desc
+/*
+### Description
+    Checks the user argument, they must be 4 (3 arg + 1 exe_name), the strings lengths must be minus than a certain maximum and the last arg must be a number
+### Parameters
+    - `int argc` is the number of args
+    - `char *argv[]` is an array of strings, each string is an arg
+*/
 void checkArgs(int argc, char *argv[])
 {
     // check the input arguments
@@ -411,17 +405,22 @@ void checkArgs(int argc, char *argv[])
     }
 }
 
-// TODO - desc
+/*
+### Description
+    Write `bib_server_name bib_server_path` in the conf file (when the server create the socket)
+### Parameters
+    - `const char *name` is the name of the server bib (bib_server_name)
+    - `const char *socket_path` is the path of the server socket (bib_server_path)    
+*/
 void writeServerInfo(const char *name, const char *socket_path)
 {
-    // @ temp test
-    printf("\tscrivo %s %s\n", name, socket_path);
+    // TODO - controllare se il nome è già presente, in caso restituire "Errore: biblioteca già presente nel file di configurazione"
     FILE *config_file = fopen(CONFIG_FILE, "a"); // Open the file in append mod
     if (config_file == NULL)
     {
         // @ temp test
         perror(THIS_PATH "writeServerInfo - Error opening config file");
-        // If cannot open the file, try to create it
+        // TODO - If cannot open the file, try to create it
         // // config_file = fopen(CONFIG_FILE, "w"); // Apre il file in modalità scrittura
         // // if (config_file == NULL) {
         // //     perror("Error opening/creating config file");
@@ -435,25 +434,36 @@ void writeServerInfo(const char *name, const char *socket_path)
     fclose(config_file);
 }
 
-// TODO - desc
+/*
+### Description
+    Remove `bib_server_name bib_server_path` from the conf file (when the server terminates and closes the socket)
+### Parameters
+    - `const char *name` is the name (bib_server_name) of the bib server to remove   
+*/
 void rmServerInfo(const char *name)
 {
     FILE *config_file = fopen(CONFIG_FILE, "rw");
-    // TODO - error handling
+    if(config_file == NULL){
+        // error handling
+        perror(THIS_PATH"rmServerInfo - config_file allocation failed");
+        exit(EXIT_FAILURE);
+    }
 
-    FILE *temp_file = fopen("temp.txt", "w");
-    // TODO - error handling
+    FILE *temp_file = fopen("temp.conf", "w");
+    if(temp_file == NULL){
+        // error handling
+        perror(THIS_PATH"rmServerInfo - temp_file allocation failed");
+        exit(EXIT_FAILURE);
+    }
 
     char *temp_name = (char *)malloc(sizeof(char) * 100);
     char *temp_path = (char *)malloc(sizeof(char) * 100);
-    while (fscanf(config_file, "%s", temp_name) == 1)
+    while (fscanf(config_file, "%s %s", temp_name, temp_path) == 1)
     {
-        // @ temp test
-        printf("%s\n", temp_name);
         if (strcmp(temp_name, name) == 0)
         {
             // @ temp test
-            printf("è lui\n");
+            printf("RMsERVERiNFO - removed\n");
         }
         else
         {
@@ -467,13 +477,13 @@ void rmServerInfo(const char *name)
 
     if (remove(CONFIG_FILE) != 0)
     {
-        perror("Errore nella rimozione del file originale");
+        perror(THIS_PATH"rmServerInfo - Errore nella rimozione del file originale");
         exit(EXIT_FAILURE);
     }
 
-    if (rename("temp.txt", CONFIG_FILE) != 0)
+    if (rename("temp.conf", "config/bib.conf") != 0)
     {
-        perror("Errore nel rinominare il file temporaneo");
+        perror(THIS_PATH"rmServerInfo - Errore nel rinominare il file temporaneo");
         exit(EXIT_FAILURE);
     }
 }

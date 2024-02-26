@@ -196,8 +196,9 @@ ServerInfo *readServerInfo(int *count)
     char*temp_name = (char*)malloc(sizeof(char) * 100);
     char*temp_path = (char*)malloc(sizeof(char) * 100);
 
-    // // TODO - capire perché si invertono nome e path
+    // TODO - capire perché si invertono nome e path (a volte)
     while (fscanf(config_file, "%s %s", temp_name, temp_path) == 2)
+    // while (fscanf(config_file, "%s %s", temp_path, temp_name) == 2)
     {
         // @ temp test
         printf("\tname:%s|path;%s\n", temp_name, temp_path);

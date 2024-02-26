@@ -7,6 +7,10 @@
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
+#include <stdbool.h>
+#include <stdatomic.h>
+#include <time.h>
+#include <errno.h>
 
 #include "pars.h"
 // #include "bib_ds.h"
@@ -45,6 +49,6 @@ void queue_destroy(Queue *q);
 void queue_push(void *data, Queue *q);
 
 // Pop an element from the queue
-void *queue_pop(Queue *q);
+void *queue_pop(Queue *q, _Atomic bool *cond, pthread_t tid);
 
 #endif

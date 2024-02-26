@@ -12,15 +12,15 @@
     - [x] (**DA FARE TESTING PIÙ APPROFONDITO**)richieste di tipo MSG_LOAN:
         analogo a MSG_QUERY: `stringa_con_record\nLOAN N` o `LOAN 0`
 - [x] mutex per scrivere su BibData (gestire concorrenza per la struttura dati condivisa contenente i records)
-- [x] terminazione del server
-    - [x] il server termina quando riceve un segnale SIGINT o SIGTERM
-    - [x] si attende la terminazione dei thread worker
-    - [x] si termina la scrittura del file di log
-    - [x] si registra il nuovo file record
-    - [x] si elimina la socket del server
+- [ ] terminazione del server
+    - [ ] il server termina quando riceve un segnale SIGINT o SIGTERM
+    - [ ] si attende la terminazione dei thread worker
+    - [ ] si termina la scrittura del file di log
+    - [ ] si registra il nuovo file record
+    - [ ] si elimina la socket del server
 - [ ] la lista di tutti i server disponibili è inclusa in un file di configurazione (`bib.conf`) che include tutti i nomi dei vari server attivi, e i dati necessari per la connessione ai rispettivi socket
     - [x] quando il server si avvia e apre la socket la scrive nel file `bib.conf`
-    - [ ] quando il server termina elimina il suo nome dal file `bib.conf`
+    - [ ] quando il server termina elimina il suo nome dal file `bib.conf` (QUASI, a volte non elimina, a volte da segmentation fault quando)
     - [x] Il client legge il file `bib.conf`. Poi interroga tutte le biblioteche connettendosi sulla socket e mandando una richeista
 - [ ] PROTOCOLLO DI COMUNICAZIONE: capire, in caso di MSG_ERROR o MSG_NO, cosa fa/stampa il client
 - [ ] SCRIPT DI CONTROLLO: `bibaccess` è uno script bash che elabora off-line i file di log generati dai bibserver

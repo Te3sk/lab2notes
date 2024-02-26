@@ -7,7 +7,7 @@
     - `Queue *q` is a pointer to a Queue data structure (defined in lib/queue.h)
 */
 void queue_init(Queue *q)
-{
+{ 
     // initialize the queue
     q->head = q->tail = NULL;
     // initialize mutex and condition variable
@@ -82,17 +82,37 @@ void queue_push(void *data, Queue *q)
     Remove the first item from the queue and give it to caller
 ### Parameters
     - `Queue *q` is the queue from which the func remove the item
+    - `bool cond` is an optional condition. When it's true, the function stop to wait for the condition variable. If don't need it set as `NULL`
 ### Return value
-    return `data`, the first one item in the queue (head), the type depends on which data have been insert
+    Return `data`, the first one item in the queue (head), the type depends on which data have been insert
+    If it stops for the cond, return -1
 */
-void *queue_pop(Queue *q)
+void *queue_pop(Queue *q, _Atomic bool *cond, pthread_t tid)
 {
+    struct timespec timeout;
+    clock_gettime(CLOCK_REALTIME, &timeout);
+    timeout.tv_sec += 5;
+
     // lock the mutex
     pthread_mutex_lock(&q->mutex);
     // check if the queue is empty
-    while (q->head == NULL)
+    while (q->head == NULL && !atomic_load(cond))
     {
-        pthread_cond_wait(&(q->notEmpty), &(q->mutex));
+        if(cond != false && atomic_load(cond)) {
+            return NULL;
+        }
+        // pthread_cond_wait(&(q->notEmpty), &(q->mutex));
+        int res = pthread_cond_timedwait(&(q->notEmpty), &(q->mutex), &timeout);
+        if (res != 0) {
+            if (res == ETIMEDOUT) {
+                continue;
+            }
+            perror("\t\t\t\t\t\tERRORE(pthread_cond_timedwait)");
+            // exit(EXIT_FAILURE);
+            continue;
+
+        }
+
     }
     // store the head node
     Node *n = q->head;
