@@ -12,7 +12,7 @@ FILE *openLogFile(char *name_bib);
 
 void logQuery(FILE *logFile, char *query, int resultCount);
 
-void logLoan(FILE *logFile, char *record, bool success);
+void logLoan(FILE *logFile, char *record, int resultCount);
 
 void closeLogFile(FILE *logFile);
 

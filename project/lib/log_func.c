@@ -9,13 +9,15 @@
     on success return the file descriptor of the log file
     on fail print an error msg and exit
 */
-FILE *openLogFile(char *name_bib) {
+FILE *openLogFile(char *name_bib)
+{
     // Crea il nome del file di log
     char filename[256];
     snprintf(filename, sizeof(filename), "log/%s%s", name_bib, LOG_FILE_EXTENSION);
     // Apre il file in modalità scrittura (troncamento)
     FILE *logFile = fopen(filename, "w"); // Apre il file in modalità scrittura (troncamento)
-    if (logFile == NULL) {
+    if (logFile == NULL)
+    {
         // error handling
         perror("Error opening log file");
         exit(EXIT_FAILURE);
@@ -28,17 +30,19 @@ FILE *openLogFile(char *name_bib) {
     Function to write a MSG_QUERY request in the log file
 ### Parameters
     - `FILE *logFile` is the file descriptor of the log file where write datas
-    - `char *query` is the request you want to write in the file
-    - `inte resultCount` is how many result the request give  
+    - `char *query` is the request you want to write in the file (empty if the req failed)
+    - `inte resultCount` is how many result the request give
 */
-void logQuery(FILE *logFile, char *query, int resultCount) {
-    //registra la query se il numero di risultati è maggiore di 0
-    if (resultCount > 0) {
+void logQuery(FILE *logFile, char *query, int resultCount)
+{
+    // registra la query se il numero di risultati è maggiore di 0
+    if (resultCount > 0)
+    {
         fprintf(logFile, "%s\n", query);
     }
-    //registra il numero di risultati
-    fprintf(logFile, "QUERY %d\n", resultCount);
-    //registra il numero di risultati
+    // // //registra il numero di risultati
+    // // fprintf(logFile, "QUERY %d\n", resultCount);
+    // registra il numero di risultati
     fprintf(logFile, "QUERY %d\n", resultCount);
 }
 
@@ -47,14 +51,18 @@ void logQuery(FILE *logFile, char *query, int resultCount) {
     Function to record a MSG_LOAN type request in the log file
 ### Parameters
     - `FILE *logFile` is the file descriptor of the log file where write datas
-    - `char *record` is the request you want to write in the file
-    - `bool success` is true if the loan was give, false oterwise
+    - `char *record` is the request you want to write in the file (empty if the req failed)
+    - `int resultCount`  is how many result the request give
 */
-void logLoan(FILE *logFile, char *record, bool success) {
-    //registra il risultato della richiesta
-    if (success) {
-        fprintf(logFile, "LOAN 1\n%s\n", record);
-    } else {
+void logLoan(FILE *logFile, char *record, int resultCount)
+{
+    // registra il risultato della richiesta
+    if (resultCount > 0)
+    {
+        fprintf(logFile, "LOAN %d\n%s\n", resultCount, record);
+    }
+    else
+    {
         fprintf(logFile, "LOAN 0\n");
     }
 }
@@ -65,7 +73,8 @@ void logLoan(FILE *logFile, char *record, bool success) {
 ### Parameters
     - `FILE *logFile` is the file descriptor of the log file you want to close
 */
-void closeLogFile(FILE *logFile) {
-    //Chiude il file di log
+void closeLogFile(FILE *logFile)
+{
+    // Chiude il file di log
     fclose(logFile);
 }

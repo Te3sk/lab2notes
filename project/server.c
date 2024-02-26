@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <stdatomic.h>
 #include "lib/queue.h"
 #include "lib/bib_ds.h"
 #include "lib/pars.h"
@@ -33,17 +34,21 @@
 // MSG ERROR Messaggio di errore. Questo tipo di messaggio viene spedito quando si è verificato un errore nel processare la richiesta del client.
 #define MSG_ERROR 'E'
 
-// initalization of termination flag
-bool termination_flag = false;
-// TODO - temp, W have to be insert by user in program launch
-// #define W 4
+// global variables
+_Atomic bool termination_flag = false;
+pthread_t *tid;
+int W;
+char *bib_path;
+BibData *bib;
+int server_socket;
+char *name_bib;
 
 typedef struct WorkerArgs
 {
     Queue *q;
     BibData *bib;
     FILE *log_file;
-    bool *term_flag;
+    // bool *term_flag;
 } WorkerArgs;
 
 void *worker(void *arg);
@@ -60,9 +65,9 @@ int main(int argc, char *argv[])
 {
     checkArgs(argc, argv);
 
-    char *name_bib = argv[1];
-    char *bib_path = argv[2];
-    int W = atoi(argv[3]);
+    name_bib = argv[1];
+    bib_path = argv[2];
+    W = atoi(argv[3]);
 
     // @ temp test
     printf("%s\n%s\n%d\n", name_bib, bib_path, W);
@@ -72,7 +77,7 @@ int main(int argc, char *argv[])
     signal(SIGTERM, signalHandler);
 
     // read the record file
-    BibData *bib = createBibData(bib_path);
+    bib = createBibData(bib_path);
     // if NULL the file on the path given doesn't exits
     if (bib == NULL)
     {
@@ -84,7 +89,7 @@ int main(int argc, char *argv[])
     FILE *log_file = openLogFile(name_bib);
 
     // * socket creation
-    int server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+    server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
     if (server_socket == -1)
     {
         // error handling
@@ -126,20 +131,20 @@ int main(int argc, char *argv[])
     queue_init(q);
 
     // thread creation
-    pthread_t tid[W];
+    tid = (pthread_t *)malloc(sizeof(pthread_t) * W);
     for (int i = 0; i < W; i++)
     {
         WorkerArgs *args = (WorkerArgs *)malloc(sizeof(WorkerArgs));
         args->q = q;
         args->bib = bib;
         args->log_file = log_file;
-        args->term_flag = &termination_flag;
+        // args->term_flag = &termination_flag;
         pthread_create(&tid[i], NULL, worker, (void *)args);
     }
 
     // TODO - poi dovrà essere gestito con il segnale di terminazione
     // * main cycle
-    while ((!termination_flag))
+    while (1)
     {
         int client_fd = accept(server_socket, NULL, NULL);
         if (client_fd == -1)
@@ -196,20 +201,20 @@ void *worker(void *arg)
     Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
     FILE *log_file = ((WorkerArgs *)arg)->log_file;
-    bool *term_flag = ((WorkerArgs *)arg)->term_flag;
+    // // bool *term_flag = ((WorkerArgs *)arg)->term_flag;
 
-    while ((!(*term_flag)))
+    while (!atomic_load(&termination_flag))
     {
-        if ((*term_flag))
+        if (atomic_load(&termination_flag))
         {
             // @ temp test
-            printf("%d\n", *term_flag);
+            printf("%d\n", termination_flag);
             break;
         }
         else
         {
             // @ temp test
-            printf("%d\n", *term_flag);
+            printf("%d\n", termination_flag);
         }
         // take request from shared data queue
         Request *req = ((Request *)queue_pop(queue));
@@ -227,6 +232,8 @@ void *worker(void *arg)
             {
                 // nothing find
                 sendData(req->senderFD, MSG_NO, "");
+                // TODO - update log file
+                req->loan ? logLoan(log_file, "", 0) : logQuery(log_file, "", 0);
             }
             else
             {
@@ -263,15 +270,12 @@ void *worker(void *arg)
                 // send data to client
                 sendData(req->senderFD, MSG_RECORD, data);
 
-                // TODO - update log file
-                // @ temp test
-                printf("\n|%s|\n", data); // 65 to 122
                 // aggiorna file di log
                 req->loan ? logLoan(log_file, data, response->size >= 0 ? true : false) : logQuery(log_file, data, response->size);
             }
         }
         // @ temp test
-        printf("TERMFLAG: %d\n", *term_flag);
+        printf("TERMFLAG: %d\n", termination_flag);
     }
     return NULL;
 }
@@ -347,6 +351,34 @@ void signalHandler(int signum)
     termination_flag = true;
     // @ temp test
     printf("\nTermination signal received: %d\n", signum);
+    // remove this server infos from conf file
+    // @ temp test
+    printf("rimozione info da bib.conf\n");
+    rmServerInfo(name_bib);
+
+    // TODO - attendere fine di tutti i worker
+    // needed: tid[i]
+    // @ temp test
+    printf("attesa join dei thread\n");
+    for (int i = 0; i < W; i++)
+    {
+        pthread_join(tid[i], NULL);
+    }
+    // TODO - termianre scrittura log file
+    // in teoria lo fanno i worker, quindi è compreso nel punto sopra
+    // TODO - registrare nuovo record file
+    // needed: file record fd, bibData
+    // TODO - error handling
+    // @ temp test
+    printf("updating record file\n");
+    updateRecordFile(bib_path, bib);
+    // TODO - eliminare la socket del server
+    // needed: server socket fd
+    // @ temp test
+    printf("chiusura socket\n");
+    close(server_socket);
+
+    exit(EXIT_SUCCESS);
 }
 
 // TODO - desc
