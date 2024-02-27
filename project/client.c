@@ -12,7 +12,6 @@
 
 #define SOCKET_PATH "./socket/temp_sock"
 #define THIS_PATH "client.c/"
-#define BUFFER_SIZE 500 // TODO - understand how many bytes give
 #define USAGE_STRING "Usage: ./client.c --filed=\"value\" -p\n\tonly one field per request, \n\tp indicates loan request"
 #define CONFIG_FILE "./config/bib.conf"
 
@@ -174,7 +173,15 @@ char *readData(int socketFD)
     }
 }
 
-// TODO - desc
+/*
+### Description
+    Read server name and the path of its socket from the conf file
+### Parameters
+    - `int *count` is a pointer to an integer inside which is inserted how many server are in the file
+### Return value
+    On success return a `ServerInfo` variable filled with names and paths
+    On fail print an error msg and exit 
+*/
 ServerInfo *readServerInfo(int *count)
 {
     FILE *config_file = fopen(CONFIG_FILE, "r");

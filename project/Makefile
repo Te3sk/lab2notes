@@ -12,7 +12,7 @@ TEST_CLIENT_PARAM = --author="Luccio, Fabrizio" --title="Mathematical and Algori
 all: server client
 
 server: $(SERVER_SRC) $(LIB_SRC)
-	$(CC) $(SERVER_SRC) $(LIB_SRC) $(CFLAGS) -o $(SERVER_BIN) 
+	$(CC) $(SERVER_SRC) $(LIB_SRC) $(CFLAGS) -g -o $(SERVER_BIN) 
 
 server_run:
 	./$(SERVER_BIN) $(TEST_SERVER_PARAM)

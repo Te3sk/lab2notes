@@ -26,7 +26,7 @@ FILE *fileFormatCheck(char *path)
     }
 
     // read the file line by line
-    char *buffer = (char *)malloc(sizeof(char) * MAX_LENGTH);
+    char *buffer = (char *)malloc(sizeof(char) * MAX_LENGTH); 
     if (buffer == NULL)
     {
         // error handling
@@ -64,6 +64,8 @@ FILE *fileFormatCheck(char *path)
             token = strtok(NULL, ";");
         }
     }
+
+    free(buffer);
 
     return fp;
 }
@@ -105,10 +107,14 @@ BibData *createBibData(char *path)
     }
 
     bib->size = 0;
- 
+    // @ temp test
+    printf("CREATEBIBDATA\n");
     bib->book[bib->size] = (char *)malloc((MAX_LENGTH + 1) * sizeof(char));
     while (fgets(bib->book[bib->size], MAX_LENGTH, fp) != NULL)
     {
+        bib->book[bib->size][strlen(bib->book[bib->size]) - 1] = '\0';
+        // @ temp test
+        printf("\t!%s|\n", bib->book[bib->size]);
         bib->size++;
         bib->book[bib->size] = (char *)malloc((MAX_LENGTH + 1) * sizeof(char));
     }
@@ -155,13 +161,18 @@ bool recordMatch(char *record, Request *req)
 
             // skip field_codes, spaces and ':' char
             token += strlen(req->field_codes[0]);
+            
             while (isspace(token[0]) || token[0] == ':')
             {
                 token++;
             }
+            // @ temp test
+            printf("\t%s\t|\t%s\n", req->field_values[0], token);
             // check if the field value match
             if (strncasecmp(req->field_values[0], token, strlen(req->field_values[0])) == 0)
             {
+                // @ temp test
+                printf("field[0] si\n");
                 if (req->size > 1)
                 {
                     for (int i = 1; i < req->size; i++)
@@ -179,8 +190,12 @@ bool recordMatch(char *record, Request *req)
                         char *pos = strcasestr(secRecordCopy, req->field_codes[i]);
                         if (pos == NULL)
                         {
+                            // @ temp test
+                            printf("no\n");
                             // not found
                             found = false;
+                            free(recordCopy);
+                            free(secRecordCopy);
                             break;
                         }
                         else
@@ -194,10 +209,14 @@ bool recordMatch(char *record, Request *req)
                             // compare with the field_value
                             if (strncasecmp(pos, req->field_values[i], strlen(req->field_values[i])) == 0)
                             {
+                                // @ temp test
+                                printf("si\n");
                                 found = true;
                             }
                             else
                             {
+                                // @ temp test
+                                printf("no\n");
                                 found = false;
                             }
                         }
@@ -205,6 +224,10 @@ bool recordMatch(char *record, Request *req)
                 }
                 else
                 {
+                    // @ temp test
+                    printf("si\n");
+                    free(recordCopy);
+                    // free(secRecordCopy);
                     return true;
                 }
             }
@@ -212,6 +235,10 @@ bool recordMatch(char *record, Request *req)
 
         token = strtok(NULL, ";");
     }
+    // @ temp test
+    printf("no\n");
+    free(recordCopy);
+    // free(secRecordCopy);
     return found;
 }
 
@@ -243,10 +270,14 @@ Response *searchRecord(BibData *bib, Request *req)
         exit(EXIT_FAILURE);
     }
     pthread_mutex_lock(&(bib->mutex));
+    // @ temp test
+    printf("SEARCHBIBDATA\n");
     for (int i = 0; i < bib->size; i++)
     {
         if (recordMatch(bib->book[i], req))
         {
+            // @ temp test
+            printf("\t|%s|\n", bib->book[i]);
             response->pos = (int *)realloc(response->pos, sizeof(int) * (response->size + 1));
             response->pos[response->size] = i;
             response->size++;
@@ -290,7 +321,7 @@ bool loanCheck(BibData *bib, Response *response)
     for (int i = 0; i < response->size; i++)
     {
         // make a copy of the record to not modify the original
-        char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1));
+        char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1));// TODO - free
         strcpy(recordCopy, bib->book[response->pos[i]]);
 
         char *pos = strcasestr(recordCopy, "prestito:");
@@ -377,6 +408,7 @@ void loanUpdate(BibData *bib, Response *response)
             }
 
             strncpy(pos, expireDate, strlen(expireDate));
+            free(expireDate);
         }
         else
         {
@@ -400,6 +432,7 @@ void loanUpdate(BibData *bib, Response *response)
             bib->book[response->pos[i]] = realloc(bib->book[response->pos[i]], (strlen(bib->book[response->pos[i]]) + strlen(expireDate) + 1));
             bib->book[response->pos[i]][strlen(bib->book[response->pos[i]]) - 1] = '\0';
             strcat(bib->book[response->pos[i]], expireDate);
+            free(expireDate);
         }
     }
 }
@@ -487,7 +520,7 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
     req->field_values = (char **)malloc(sizeof(char *));
 
     // copy the request to mantain the original
-    char *request_copy = (char *)malloc(strlen(request));
+    char *request_copy = (char *)malloc(strlen(request));// TODO - free
     strcpy(request_copy, request);
 
     // tokenize for ";"
@@ -517,6 +550,7 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         token = strtok(NULL, ";");
         req->size++;
     }
+    free(request_copy);
 
     for (int i = 0; i < req->size; i++)
     {
@@ -576,11 +610,13 @@ int updateRecordFile(char *path, BibData *bib)
         {
             // error handling
             perror(THIS_PATH "updateFileRecord - copy allocation failed");
+            free(copy);
             return -1;
         }
         strcpy(copy, bib->book[i]);
         // search for "prestito" field
         char *pos = strcasestr(copy, "prestito:");
+        free(copy);
         if (pos != NULL)
         {
             // skip "prestito" and delete initial spaces if there are

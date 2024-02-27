@@ -16,9 +16,8 @@
 #define SOCKET_PATH "./socket/temp_sock"
 #define THIS_PATH "server.c/"
 #define CONFIG_FILE "./config/bib.conf"
-#define MAX_CLIENTS 10                      // temp, it must be 40
-#define MAX_LENGTH 500                      // TODO - understand how many bytes give
-#define MAX_NAME_LENGTH (10 * sizeof(char)) // TODO - understrand how many
+#define MAX_CLIENTS 10 // temp, it must be 40
+#define MAX_NAME_LENGTH (10 * sizeof(char))
 
 // TODO - per ora non lancia con 'bibserver' ma con './bibserver'
 #define USAGE "Run with:\n\n\t$ bibserver name_bib file_record W\n\n\'name_bib\' is the name of the library, \'file_record\' is the path of the file containing the records, \'W\' is the number of workers.\n"
@@ -72,7 +71,7 @@ int main(int argc, char *argv[])
 
     // termination handler registration
     // TODO - segnale di terminazione (quando fatto levare parametro tid da queue_pop)
-    // signal(SIGINT, signalHandler);
+    signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
 
     // read the record file
@@ -100,6 +99,12 @@ int main(int argc, char *argv[])
     struct sockaddr_un server_address;
     server_address.sun_family = AF_UNIX;
     char *socket_path = (char *)malloc(strlen(name_bib) + strlen("socket/") + strlen("_sock"));
+    if (socket_path == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "main - socket_path allocation failed");
+        exit(EXIT_FAILURE);
+    }
     strcpy(socket_path, "socket/");
     strcat(socket_path, name_bib);
     strcat(socket_path, "_sock");
@@ -125,13 +130,31 @@ int main(int argc, char *argv[])
     writeServerInfo(name_bib, socket_path);
 
     Queue *q = (Queue *)malloc(sizeof(Queue));
+    if (q == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "main - q allocation failed");
+        exit(EXIT_FAILURE);
+    }
     queue_init(q);
 
     // thread creation
     tid = (pthread_t *)malloc(sizeof(pthread_t) * W);
+    if (tid == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "main - tid[] allocation failed");
+        exit(EXIT_FAILURE);
+    }
     for (int i = 0; i < W; i++)
     {
         WorkerArgs *args = (WorkerArgs *)malloc(sizeof(WorkerArgs));
+        if (args == NULL)
+        {
+            // error handling
+            perror(THIS_PATH "main - args failed");
+            exit(EXIT_FAILURE);
+        }
         args->q = q;
         args->bib = bib;
         args->log_file = log_file;
@@ -157,6 +180,12 @@ int main(int argc, char *argv[])
         if (req == NULL)
         {
             req = (Request *)malloc(sizeof(Request));
+            if (req == NULL)
+            {
+                // error handling
+                perror(THIS_PATH "main - req allocation failed");
+                exit(EXIT_FAILURE);
+            }
             req->senderFD = client_fd;
             req->size = -1;
         }
@@ -174,7 +203,7 @@ void *worker(void *arg)
     Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
     FILE *log_file = ((WorkerArgs *)arg)->log_file;
-    pthread_t stid= ((WorkerArgs *)arg)->tid;
+    pthread_t stid = ((WorkerArgs *)arg)->tid;
     // // bool *term_flag = ((WorkerArgs *)arg)->term_flag;
 
     while (!atomic_load(&termination_flag))
@@ -186,10 +215,12 @@ void *worker(void *arg)
         // take request from shared data queue
         // @ temp test
         Request *req = ((Request *)queue_pop(queue, &termination_flag, stid));
-        if (atomic_load(&termination_flag)) {
+        if (atomic_load(&termination_flag))
+        {
             return NULL;
         }
-        if (req == NULL) {
+        if (req == NULL)
+        {
             return NULL;
         }
         if (req->size == -1)
@@ -201,7 +232,6 @@ void *worker(void *arg)
         {
             // search in the shared data structure
             Response *response = searchRecord(bib, req);
-
             if (response == NULL)
             {
                 // nothing find
@@ -211,13 +241,30 @@ void *worker(void *arg)
             }
             else
             {
+                // // // @ temp test
+                // // printf("WORKER\n");
+                // // for (int i = 0; i < response->size; i++)
+                // // {
+                // //     // @ temp test
+                // //     printf("\t%s\n", bib->book[response->pos[i]]);
+                // // }
                 int size = 0;
                 char *data = (char *)malloc(sizeof(char));
+                if (data == NULL)
+                {
+                    // error handling
+                    perror(THIS_PATH "worker - data allocation failed");
+                    exit(EXIT_FAILURE);
+                }
                 for (int i = 0; i < response->size; i++)
                 {
                     // reallocation of data for the string to append
                     data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 1);
                     size += strlen(bib->book[response->pos[i]] + 1);
+                    while (bib->book[response->pos[i]][0] < 65 || bib->book[response->pos[i]][0] > 122)
+                    {
+                        bib->book[response->pos[i]]++;
+                    }
                     // concat the strings
                     strcat(data, bib->book[response->pos[i]]);
                     data[size] = '\n';
@@ -227,10 +274,10 @@ void *worker(void *arg)
                 int i = size;
                 while (data[i] == '\n' || data[i] == '\0')
                 {
-                    if (data[i] == '\n')
-                    {
-                        size--;
-                    }
+                    // if (data[i] == '\n')
+                    // {
+                    //     size--;
+                    // }
                     i--;
                 }
                 data[++size] = '\0';
@@ -241,6 +288,9 @@ void *worker(void *arg)
                     i++;
                 }
 
+                // @ temp test
+                printf("WORKER - |%s|\n", data);
+
                 // send data to client
                 sendData(req->senderFD, MSG_RECORD, data);
 
@@ -248,7 +298,8 @@ void *worker(void *arg)
                 req->loan ? logLoan(log_file, data, response->size >= 0 ? true : false) : logQuery(log_file, data, response->size);
             }
         }
-        if (atomic_load(&termination_flag)) {
+        if (atomic_load(&termination_flag))
+        {
             return NULL;
         }
     }
@@ -309,6 +360,12 @@ char readData(int clientFD, char **data)
     // read length
     length = receive_int(clientFD);
     *data = (char *)malloc((length + 1) * sizeof(char));
+    if (data == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "readData - data failed");
+        exit(EXIT_FAILURE);
+    }
     bytesread = read(clientFD, *data, length);
     if (bytesread == -1)
     {
@@ -339,32 +396,30 @@ void signalHandler(int signum)
     // TODO - attendere fine di tutti i worker
     // needed: tid[i]
     // @ temp test
-    printf("\tattesa join dei thread\n");
-    for (int i = 0; i < W; i++)
-    {
-        pthread_join(tid[i], NULL);
-        // @ temp test
-        printf("terminato thread %d\n", i);
-    }
+    // printf("\tattesa join dei thread\n");
+    // for (int i = 0; i < W; i++)
+    // {
+    //     pthread_join(tid[i], NULL);
+    //     // @ temp test
+    //     printf("terminato thread %d\n", i);
+    // }
     // TODO - termianre scrittura log file
-    // in teoria lo fanno i worker, quindi è compreso nel punto sopra
-    // TODO - registrare nuovo record file
-    // needed: file record fd, bibData
-    // @ temp test
-    printf("\tupdating record file\n");
-    if (updateRecordFile(bib_path, bib) < 0) {
-        // error handling
-        printf("%ssignalHandler - error updating record file\n", THIS_PATH);
-    }
+    // // in teoria lo fanno i worker, quindi è compreso nel punto sopra
+    // // TODO - registrare nuovo record file
+    // // needed: file record fd, bibData
+    // // @ temp test
+    // printf("\tupdating record file\n");
+    // if (updateRecordFile(bib_path, bib) < 0) {
+    //     // error handling
+    //     printf("%ssignalHandler - error updating record file\n", THIS_PATH);
+    // }
     // TODO - eliminare la socket del server
-    // needed: server socket fd
-    // @ temp test
-    printf("\tchiusura socket\n");
-    close(server_socket);
-    unlink(SOCKET_PATH);
+    // // needed: server socket fd
+    // // @ temp test
+    // printf("\tchiusura socket\n");
+    // close(server_socket);
+    // unlink(SOCKET_PATH);
     // TODO - registra nuovo file_record
-
-
 
     exit(EXIT_SUCCESS);
 }
@@ -410,7 +465,7 @@ void checkArgs(int argc, char *argv[])
     Write `bib_server_name bib_server_path` in the conf file (when the server create the socket)
 ### Parameters
     - `const char *name` is the name of the server bib (bib_server_name)
-    - `const char *socket_path` is the path of the server socket (bib_server_path)    
+    - `const char *socket_path` is the path of the server socket (bib_server_path)
 */
 void writeServerInfo(const char *name, const char *socket_path)
 {
@@ -420,12 +475,6 @@ void writeServerInfo(const char *name, const char *socket_path)
     {
         // @ temp test
         perror(THIS_PATH "writeServerInfo - Error opening config file");
-        // TODO - If cannot open the file, try to create it
-        // // config_file = fopen(CONFIG_FILE, "w"); // Apre il file in modalità scrittura
-        // // if (config_file == NULL) {
-        // //     perror("Error opening/creating config file");
-        // //     exit(EXIT_FAILURE);
-        // // }
     }
 
     // Write the server infos in the configuration file
@@ -438,26 +487,41 @@ void writeServerInfo(const char *name, const char *socket_path)
 ### Description
     Remove `bib_server_name bib_server_path` from the conf file (when the server terminates and closes the socket)
 ### Parameters
-    - `const char *name` is the name (bib_server_name) of the bib server to remove   
+    - `const char *name` is the name (bib_server_name) of the bib server to remove
 */
 void rmServerInfo(const char *name)
 {
+    // TODO - se termina prima che il client faccia richieste ok, altrimenti da segmentation fault (a volte)
     FILE *config_file = fopen(CONFIG_FILE, "rw");
-    if(config_file == NULL){
+    if (config_file == NULL)
+    {
         // error handling
-        perror(THIS_PATH"rmServerInfo - config_file allocation failed");
+        perror(THIS_PATH "rmServerInfo - config_file allocation failed");
         exit(EXIT_FAILURE);
     }
 
     FILE *temp_file = fopen("temp.conf", "w");
-    if(temp_file == NULL){
+    if (temp_file == NULL)
+    {
         // error handling
-        perror(THIS_PATH"rmServerInfo - temp_file allocation failed");
+        perror(THIS_PATH "rmServerInfo - temp_file allocation failed");
         exit(EXIT_FAILURE);
     }
 
     char *temp_name = (char *)malloc(sizeof(char) * 100);
+    if (temp_name == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "rmServerInfo - temp_name allocation failed");
+        exit(EXIT_FAILURE);
+    }
     char *temp_path = (char *)malloc(sizeof(char) * 100);
+    if (temp_path == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "rmServerInfo - temp_path allocation failed");
+        exit(EXIT_FAILURE);
+    }
     while (fscanf(config_file, "%s %s", temp_name, temp_path) == 1)
     {
         if (strcmp(temp_name, name) == 0)
@@ -470,20 +534,22 @@ void rmServerInfo(const char *name)
             fprintf(temp_file, "%s %s\n", temp_name, temp_path);
         }
     }
+    // @ temp test
+    printf("RMSERVERINFO - while done, closing files fds\n");
     fclose(config_file);
     fclose(temp_file);
-
-    sleep(5);
-
+    // @ temp test
+    printf("RMSERVERINFO - files closed\n");
     if (remove(CONFIG_FILE) != 0)
     {
-        perror(THIS_PATH"rmServerInfo - Errore nella rimozione del file originale");
+        perror(THIS_PATH "rmServerInfo - Errore nella rimozione del file originale");
         exit(EXIT_FAILURE);
     }
-
+    // @ temp test
+    printf("RMSERVERINFO - old config file removed\n");
     if (rename("temp.conf", "config/bib.conf") != 0)
     {
-        perror(THIS_PATH"rmServerInfo - Errore nel rinominare il file temporaneo");
+        perror(THIS_PATH "rmServerInfo - Errore nel rinominare il file temporaneo");
         exit(EXIT_FAILURE);
     }
 }
