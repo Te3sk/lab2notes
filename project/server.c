@@ -18,6 +18,7 @@
 #define CONFIG_FILE "./config/bib.conf"
 #define MAX_CLIENTS 10 // temp, it must be 40
 #define MAX_NAME_LENGTH (10 * sizeof(char))
+#define TERMINATION_SENTINEL -1
 
 // TODO - per ora non lancia con 'bibserver' ma con './bibserver'
 #define USAGE "Run with:\n\n\t$ bibserver name_bib file_record W\n\n\'name_bib\' is the name of the library, \'file_record\' is the path of the file containing the records, \'W\' is the number of workers.\n"
@@ -41,6 +42,7 @@ char *bib_path;
 BibData *bib;
 int server_socket;
 char *name_bib;
+Queue *q;
 
 typedef struct WorkerArgs
 {
@@ -129,7 +131,7 @@ int main(int argc, char *argv[])
     // write server info in the conf file
     writeServerInfo(name_bib, socket_path);
 
-    Queue *q = (Queue *)malloc(sizeof(Queue));
+    q = (Queue *)malloc(sizeof(Queue));
     if (q == NULL)
     {
         // error handling
@@ -163,7 +165,7 @@ int main(int argc, char *argv[])
         pthread_create(&tid[i], NULL, worker, (void *)args);
     }
 
-    // TODO - poi dovrà essere gestito con il segnale di terminazione
+    // TODO - poi la guardia del while dovrà essere gestita con il segnale di terminazione
     // * main cycle
     while (1)
     {
@@ -204,7 +206,6 @@ void *worker(void *arg)
     BibData *bib = ((WorkerArgs *)arg)->bib;
     FILE *log_file = ((WorkerArgs *)arg)->log_file;
     pthread_t stid = ((WorkerArgs *)arg)->tid;
-    // // bool *term_flag = ((WorkerArgs *)arg)->term_flag;
 
     while (!atomic_load(&termination_flag))
     {
@@ -213,7 +214,16 @@ void *worker(void *arg)
             return NULL;
         }
         // take request from shared data queue
-        // @ temp test
+        void *data = queue_pop(q, NULL, NULL);
+        int *int_ptr = (int *)data;
+        int result = *int_ptr;
+
+        if((*((int *)data)) == TERMINATION_SENTINEL) {
+            // @ temp test
+            printf("TROVATO termination sentinel : %d\n", TERMINATION_SENTINEL);
+            return NULL;
+        }
+
         Request *req = ((Request *)queue_pop(queue, &termination_flag, stid));
         if (atomic_load(&termination_flag))
         {
@@ -393,7 +403,14 @@ void signalHandler(int signum)
     printf("\trimozione info da bib.conf\n");
     rmServerInfo(name_bib);
 
-    // TODO - attendere fine di tutti i worker
+    // TODO - attendere fine di tutti i worker, new approach: push a termination parameter on shared request queue
+    // @ temp test
+    printf("\tinserimento termination sentinel nella coda\n");
+    for (int i = 0; i < W; i++) {
+        int *temp = (int *)malloc(sizeof(int));
+        *temp = TERMINATION_SENTINEL;
+        queue_push(q, temp);
+    }
     // needed: tid[i]
     // @ temp test
     // printf("\tattesa join dei thread\n");
