@@ -202,10 +202,11 @@ void *worker(void *arg)
 {
     // TODO - il server taglia gli ultimi caratteri dei msg che manda al client
     // take data from arg data structure
-    Queue *queue = ((WorkerArgs *)arg)->q;
+    // TODO - q resa globale, levarla da WorkerArgs
+    // // Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
     FILE *log_file = ((WorkerArgs *)arg)->log_file;
-    pthread_t stid = ((WorkerArgs *)arg)->tid;
+    // // pthread_t stid = ((WorkerArgs *)arg)->tid;
 
     while (!atomic_load(&termination_flag))
     {
@@ -214,17 +215,14 @@ void *worker(void *arg)
             return NULL;
         }
         // take request from shared data queue
-        void *data = queue_pop(q, NULL, NULL);
-        int *int_ptr = (int *)data;
-        int result = *int_ptr;
+        void *data = queue_pop(q);
 
-        if((*((int *)data)) == TERMINATION_SENTINEL) {
-            // @ temp test
-            printf("TROVATO termination sentinel : %d\n", TERMINATION_SENTINEL);
+        if ((*((int *)data)) == TERMINATION_SENTINEL)
+        {
             return NULL;
         }
 
-        Request *req = ((Request *)queue_pop(queue, &termination_flag, stid));
+        Request *req = ((Request *)data);
         if (atomic_load(&termination_flag))
         {
             return NULL;
@@ -403,40 +401,34 @@ void signalHandler(int signum)
     printf("\trimozione info da bib.conf\n");
     rmServerInfo(name_bib);
 
-    // TODO - attendere fine di tutti i worker, new approach: push a termination parameter on shared request queue
+    // Insert a termination sentinel in the shared reqeust queue, so the threads worker can read all the reqeust and after and themself
     // @ temp test
     printf("\tinserimento termination sentinel nella coda\n");
-    for (int i = 0; i < W; i++) {
-        int *temp = (int *)malloc(sizeof(int));
-        *temp = TERMINATION_SENTINEL;
-        queue_push(q, temp);
-    }
-    // needed: tid[i]
+    int *temp = (int *)malloc(sizeof(int));
+    *temp = TERMINATION_SENTINEL;
     // @ temp test
-    // printf("\tattesa join dei thread\n");
-    // for (int i = 0; i < W; i++)
-    // {
-    //     pthread_join(tid[i], NULL);
-    //     // @ temp test
-    //     printf("terminato thread %d\n", i);
-    // }
+    for (int i = 0; i < W; i++)
+    {
+        queue_push((void *)temp, q);
+    }
+
     // TODO - termianre scrittura log file
-    // // in teoria lo fanno i worker, quindi è compreso nel punto sopra
-    // // TODO - registrare nuovo record file
-    // // needed: file record fd, bibData
-    // // @ temp test
-    // printf("\tupdating record file\n");
-    // if (updateRecordFile(bib_path, bib) < 0) {
-    //     // error handling
-    //     printf("%ssignalHandler - error updating record file\n", THIS_PATH);
-    // }
+    // in teoria lo fanno i worker, quindi è compreso nel punto sopra
+    // TODO - registrare nuovo record file
+    // TODO - per ora nuovo file di record in una copia temporanea, per mantenere l'originale
+    printf("\tupdating record file\n");
+    char *temp_path = (char *)malloc(sizeof(char) * (strlen(bib_path) + strlen("_copy")));
+    strcpy(temp_path, bib_path);
+    strcat(temp_path, "_copy");
+    if (updateRecordFile(temp_path, bib) < 0) {
+        //error handling
+        printf("%sSignalHandler - error while updating record file\n");
+        exit(EXIT_FAILURE);
+    }
     // TODO - eliminare la socket del server
-    // // needed: server socket fd
-    // // @ temp test
-    // printf("\tchiusura socket\n");
-    // close(server_socket);
-    // unlink(SOCKET_PATH);
-    // TODO - registra nuovo file_record
+    printf("\tclosing server socket\n");
+    close(server_socket);
+    unlink(SOCKET_PATH);
 
     exit(EXIT_SUCCESS);
 }
@@ -551,19 +543,13 @@ void rmServerInfo(const char *name)
             fprintf(temp_file, "%s %s\n", temp_name, temp_path);
         }
     }
-    // @ temp test
-    printf("RMSERVERINFO - while done, closing files fds\n");
     fclose(config_file);
     fclose(temp_file);
-    // @ temp test
-    printf("RMSERVERINFO - files closed\n");
     if (remove(CONFIG_FILE) != 0)
     {
         perror(THIS_PATH "rmServerInfo - Errore nella rimozione del file originale");
         exit(EXIT_FAILURE);
     }
-    // @ temp test
-    printf("RMSERVERINFO - old config file removed\n");
     if (rename("temp.conf", "config/bib.conf") != 0)
     {
         perror(THIS_PATH "rmServerInfo - Errore nel rinominare il file temporaneo");

@@ -49,6 +49,6 @@ void queue_destroy(Queue *q);
 void queue_push(void *data, Queue *q);
 
 // Pop an element from the queue
-void *queue_pop(Queue *q, _Atomic bool *cond, pthread_t tid);
+void *queue_pop(Queue *q);
 
 #endif

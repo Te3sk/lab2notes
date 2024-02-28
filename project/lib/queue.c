@@ -7,7 +7,7 @@
     - `Queue *q` is a pointer to a Queue data structure (defined in lib/queue.h)
 */
 void queue_init(Queue *q)
-{ 
+{
     // initialize the queue
     q->head = q->tail = NULL;
     // initialize mutex and condition variable
@@ -54,7 +54,6 @@ void queue_push(void *data, Queue *q)
     Node *n = (Node *)malloc(sizeof(Node));
     n->data = data;
     n->next = NULL;
-
     // lock the mutex
     pthread_mutex_lock(&q->mutex);
     // check if the queue is empty
@@ -87,32 +86,15 @@ void queue_push(void *data, Queue *q)
     Return `data`, the first one item in the queue (head), the type depends on which data have been insert
     If it stops for the cond, return -1
 */
-void *queue_pop(Queue *q, _Atomic bool *cond, pthread_t tid)
+void *queue_pop(Queue *q)
 {
-    struct timespec timeout;
-    clock_gettime(CLOCK_REALTIME, &timeout);
-    timeout.tv_sec += 5;
-
     // lock the mutex
     pthread_mutex_lock(&q->mutex);
     // check if the queue is empty
-    while (q->head == NULL && !atomic_load(cond))
+    while (q->head == NULL)
     {
-        if(cond != false && atomic_load(cond)) {
-            return NULL;
-        }
         // pthread_cond_wait(&(q->notEmpty), &(q->mutex));
-        int res = pthread_cond_timedwait(&(q->notEmpty), &(q->mutex), &timeout);
-        if (res != 0) {
-            if (res == ETIMEDOUT) {
-                continue;
-            }
-            perror("\t\t\t\t\t\tERRORE(pthread_cond_timedwait)");
-            // exit(EXIT_FAILURE);
-            continue;
-
-        }
-
+        pthread_cond_wait(&(q->notEmpty), &(q->mutex));
     }
     // store the head node
     Node *n = q->head;
