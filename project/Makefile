@@ -7,7 +7,7 @@ CLIENT_BIN = client.out
 LIB_SRC = lib/bib_ds.c lib/pars.c lib/queue.c lib/log_func.c
 
 TEST_SERVER_PARAM = temp_bib bibData/bib1.txt 4
-TEST_CLIENT_PARAM = --author="Luccio, Fabrizio" --title="Mathematical and Algorithmic Foundations of the Internet" -p
+TEST_CLIENT_PARAM = --author="Luccio: Fabrizio" --title="Mathematical and Algorithmic Foundations of the Internet" -p
 
 all: server client
 

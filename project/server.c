@@ -35,6 +35,7 @@
 #define MSG_ERROR 'E'
 
 // global variables
+// TODO - eliminare qualunque cosa relativa alla termination flag
 _Atomic bool termination_flag = false;
 pthread_t *tid;
 int W;
@@ -43,12 +44,13 @@ BibData *bib;
 int server_socket;
 char *name_bib;
 Queue *q;
+int log_file;
 
 typedef struct WorkerArgs
 {
     Queue *q;
     BibData *bib;
-    FILE *log_file;
+    // int log_file;
     pthread_t tid;
     // bool *term_flag;
 } WorkerArgs;
@@ -86,7 +88,7 @@ int main(int argc, char *argv[])
     }
 
     // create log file
-    FILE *log_file = openLogFile(name_bib);
+    log_file = openLogFile(name_bib);
 
     // * socket creation
     server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -159,7 +161,7 @@ int main(int argc, char *argv[])
         }
         args->q = q;
         args->bib = bib;
-        args->log_file = log_file;
+        // args->log_file = log_file;
         args->tid = i;
         // args->term_flag = &termination_flag;
         pthread_create(&tid[i], NULL, worker, (void *)args);
@@ -205,7 +207,7 @@ void *worker(void *arg)
     // TODO - q resa globale, levarla da WorkerArgs
     // // Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
-    FILE *log_file = ((WorkerArgs *)arg)->log_file;
+    // int log_file = ((WorkerArgs *)arg)->log_file;
     // // pthread_t stid = ((WorkerArgs *)arg)->tid;
 
     while (!atomic_load(&termination_flag))
@@ -246,6 +248,8 @@ void *worker(void *arg)
                 sendData(req->senderFD, MSG_NO, "");
                 // TODO - update log file
                 req->loan ? logLoan(log_file, "", 0) : logQuery(log_file, "", 0);
+                // @ temp test
+                printf("aggiornato file di log(in teoria)\n");
             }
             else
             {
@@ -303,7 +307,9 @@ void *worker(void *arg)
                 sendData(req->senderFD, MSG_RECORD, data);
 
                 // aggiorna file di log
-                req->loan ? logLoan(log_file, data, response->size >= 0 ? true : false) : logQuery(log_file, data, response->size);
+                req->loan ? logLoan(log_file, data, response->size): logQuery(log_file, data, response->size);
+                // @ temp test
+                printf("aggiornato file di log(in teoria)\n");
             }
         }
         if (atomic_load(&termination_flag))
@@ -412,20 +418,24 @@ void signalHandler(int signum)
         queue_push((void *)temp, q);
     }
 
-    // TODO - termianre scrittura log file
+    // end log file writing
     // in teoria lo fanno i worker, quindi è compreso nel punto sopra
-    // TODO - registrare nuovo record file
+    close(log_file);
+
+    // write new record_file
     // TODO - per ora nuovo file di record in una copia temporanea, per mantenere l'originale
     printf("\tupdating record file\n");
     char *temp_path = (char *)malloc(sizeof(char) * (strlen(bib_path) + strlen("_copy")));
     strcpy(temp_path, bib_path);
     strcat(temp_path, "_copy");
-    if (updateRecordFile(temp_path, bib) < 0) {
-        //error handling
-        printf("%sSignalHandler - error while updating record file\n");
+    if (updateRecordFile(temp_path, bib) < 0)
+    {
+        // error handling
+        printf("%sSignalHandler - error while updating record file\n", THIS_PATH);
         exit(EXIT_FAILURE);
     }
-    // TODO - eliminare la socket del server
+
+    // close server socket
     printf("\tclosing server socket\n");
     close(server_socket);
     unlink(SOCKET_PATH);

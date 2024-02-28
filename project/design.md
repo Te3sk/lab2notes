@@ -5,19 +5,19 @@
 - [x] SERVER: il server deve aggiornare i file di `file_record` sovrascrivendo con i record aggiornati della struttura condivisa
 - [x] SERVER: i libri per cui la scadenza del prestito è passata sono considerati disponibili e quindi il campo `prestito` non viene scritto nel file
 - [x] Il server registra un file di log (`./name_bib.log`) in cui per ogni richiesta effettuata da un client si registrano il numero dei record inviati, dei prestiti effettuati e le info relative a ciascun record
-    - [x] (**DA FARE TESTING PIÙ APPROFONDITO**)LOG: ogni richiesta processata da ogni server viene registrata all'interno di un file di log (`name_bib.log`).
+    - [x] LOG: ogni richiesta processata da ogni server viene registrata all'interno di un file di log (`name_bib.log`).
     - [x] All'inizio dell'eleaborazione il server tronca il file (elimina eventuali contenuti precedenti), poi per ogni richiesta registra delle linee
-    - [x] (**DA FARE TESTING PIÙ APPROFONDITO**)richieste di tipo MSG_QUERY:
+    - [x] richieste di tipo MSG_QUERY:
         scrive `QUERY N` dove `N` è il numero totale di record inviati, preceduti dalle stringhe contenenti i record inviati. In caso non venga inviato nessun record si scrive solo `QUERY 0`
-    - [x] (**DA FARE TESTING PIÙ APPROFONDITO**)richieste di tipo MSG_LOAN:
+    - [x] richieste di tipo MSG_LOAN:
         analogo a MSG_QUERY: `stringa_con_record\nLOAN N` o `LOAN 0`
 - [x] mutex per scrivere su BibData (gestire concorrenza per la struttura dati condivisa contenente i records)
-- [ ] terminazione del server
-    - [ ] il server termina quando riceve un segnale SIGINT o SIGTERM
-    - [ ] si attende la terminazione dei thread worker
-    - [ ] si termina la scrittura del file di log
-    - [ ] si registra il nuovo file record
-    - [ ] si elimina la socket del server
+- [x] terminazione del server
+    - [x] il server termina quando riceve un segnale SIGINT o SIGTERM
+    - [x] si attende la terminazione dei thread worker
+    - [x] si termina la scrittura del file di log
+    - [x] si registra il nuovo file record
+    - [x] si elimina la socket del server
 - [ ] la lista di tutti i server disponibili è inclusa in un file di configurazione (`bib.conf`) che include tutti i nomi dei vari server attivi, e i dati necessari per la connessione ai rispettivi socket
     - [x] quando il server si avvia e apre la socket la scrive nel file `bib.conf`
     - [ ] quando il server termina elimina il suo nome dal file `bib.conf` (QUASI, a volte non elimina, a volte da segmentation fault quando)
