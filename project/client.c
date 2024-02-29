@@ -48,9 +48,6 @@ int main(int argc, char *argv[])
     int serverNum;
     ServerInfo *serverInfo = readServerInfo(&serverNum);
 
-    // @ temp test
-    printf("letti %d server\n", serverNum);
-
     for (int i = 0; i < serverNum; i++)
     {
         int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -61,11 +58,10 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
 
-        // @ temp test
-        printf("try to connect with %s on %s\n", serverInfo[i].name, serverInfo[i].socket_path );
         struct sockaddr_un server_addr;
         server_addr.sun_family = AF_UNIX;
         strcpy(server_addr.sun_path, serverInfo[i].socket_path);
+
 
         if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
         {
@@ -74,9 +70,16 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
 
+        // @ temp test
+        printf("connected with %s\n", serverInfo->socket_path);
+
         sendData(socket_fd, loan ? MSG_LOAN : MSG_QUERY, parameters);
 
+
+        // @ temp test
+
         char *response = readData(socket_fd);
+        printf("send data, wait for responce\n");
 
         if (response != NULL)
         {
@@ -207,21 +210,16 @@ ServerInfo *readServerInfo(int *count)
     while (fscanf(config_file, "%s %s", temp_name, temp_path) == 2)
     // while (fscanf(config_file, "%s %s", temp_path, temp_name) == 2)
     {
-        // @ temp test
-        printf("\tname:%s|path;%s\n", temp_name, temp_path);
         serverInfo[*count].name = (char *)malloc(sizeof(char) * (strlen(temp_name) + 1));
         strcpy(serverInfo[*count].name, temp_name);
         serverInfo[*count].name[strlen(temp_name)] = '\0';
         serverInfo[*count].socket_path = (char *)malloc(sizeof(char) * (strlen(temp_path) + 1));
         strcpy(serverInfo[*count].socket_path, temp_path);
         serverInfo[*count].socket_path[strlen(temp_path)] = '\0';
-        // @ temp test
-        printf("letto %s %s\n", serverInfo[*count].name, serverInfo[*count].socket_path);
         (*count)++;
         serverInfo = (ServerInfo *)realloc(serverInfo, sizeof(ServerInfo) * (*count + 1));
     }
 
     fclose(config_file);
-    // @ temp test
     return serverInfo;
 }

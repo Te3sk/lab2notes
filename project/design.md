@@ -23,14 +23,14 @@
     - [ ] quando il server termina elimina il suo nome dal file `bib.conf` (QUASI, a volte non elimina, a volte da segmentation fault quando)
     - [x] Il client legge il file `bib.conf`. Poi interroga tutte le biblioteche connettendosi sulla socket e mandando una richeista
 - [ ] PROTOCOLLO DI COMUNICAZIONE: capire, in caso di MSG_ERROR o MSG_NO, cosa fa/stampa il client
-- [ ] SCRIPT DI CONTROLLO: `bibaccess` è uno script bash che elabora off-line i file di log generati dai bibserver
-    - [ ] può essere invocato con due opzioni: 
+- [x] SCRIPT DI CONTROLLO: `bibaccess` è uno script bash che elabora off-line i file di log generati dai bibserver
+    - [x] può essere invocato con due opzioni: 
         - `$ ./bibaccess --quey log1...logN`
         - `$ ./bibaccess --loan log1...logN`
-    - [ ] dove `log1...logN` sono file di testo (ASCII) che contengono i log dei record prestati dai vari server
-    - [ ] con le opzioni con doppio trattino (`--query` e `--loan`) si può richiedere il numero complessivo di richieste e di prestiti nei file specificati
-    - [ ] lo script deve:
-        - [ ] controllare la validità dei suoi argomenti
+    - [x] dove `log1...logN` sono file di testo (ASCII) che contengono i log dei record prestati dai vari server
+    - [x] con le opzioni con doppio trattino (`--query` e `--loan`) si può richiedere il numero complessivo di richieste e di prestiti nei file specificati
+    - [x] lo script deve:
+        - [x] controllare la validità dei suoi argomenti
         - [ ] scorrere i file di log
         - [ ] individuare le info richieste
         - [ ] stampa una riga per file di log ricevuto in input

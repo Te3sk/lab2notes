@@ -126,12 +126,13 @@ Request *requestParser(char *string)
             {
                 req->field_codes[req->size] = "descrizione_fisica";
             }
-            else
-            {
-                // error handling
-                printf("%srequestParser - invalid field code\n", THIS_PATH);
-                exit(EXIT_FAILURE);
-            }
+            // ramo else default tolto, se non è uno di quelli (in en), lo lascia com'è
+            // // else
+            // // {
+            // //     // error handling
+            // //     printf("%srequestParser - invalid field code\n", THIS_PATH);
+            // //     exit(EXIT_FAILURE);
+            // // }
             req->size++;
         }
 

@@ -13,7 +13,7 @@
 #include "lib/pars.h"
 #include "lib/log_func.h"
 
-#define SOCKET_PATH "./socket/temp_sock"
+// #define SOCKET_PATH "./socket/temp_sock"
 #define THIS_PATH "server.c/"
 #define CONFIG_FILE "./config/bib.conf"
 #define MAX_CLIENTS 10 // temp, it must be 40
@@ -45,6 +45,7 @@ int server_socket;
 char *name_bib;
 Queue *q;
 int log_file;
+char *socket_path;
 
 typedef struct WorkerArgs
 {
@@ -102,16 +103,14 @@ int main(int argc, char *argv[])
     // * socket address definition
     struct sockaddr_un server_address;
     server_address.sun_family = AF_UNIX;
-    char *socket_path = (char *)malloc(strlen(name_bib) + strlen("socket/") + strlen("_sock"));
+    socket_path = (char *)malloc(strlen(name_bib) + strlen("socket/") + strlen("_sock"));
     if (socket_path == NULL)
     {
         // error handling
         perror(THIS_PATH "main - socket_path allocation failed");
         exit(EXIT_FAILURE);
     }
-    strcpy(socket_path, "socket/");
-    strcat(socket_path, name_bib);
-    strcat(socket_path, "_sock");
+    sprintf(socket_path, "socket/%s_sock", name_bib);
     strcpy(server_address.sun_path, socket_path);
 
     // * association of the socket to the address
@@ -438,7 +437,11 @@ void signalHandler(int signum)
     // close server socket
     printf("\tclosing server socket\n");
     close(server_socket);
-    unlink(SOCKET_PATH);
+    unlink(socket_path);
+    if(remove(socket_path) != 0) {
+        // error handling
+        perror(THIS_PATH"rmServerInfo - socket removing failed");
+    }
 
     exit(EXIT_SUCCESS);
 }
