@@ -13,7 +13,6 @@
 #include "lib/pars.h"
 #include "lib/log_func.h"
 
-// #define SOCKET_PATH "./socket/temp_sock"
 #define THIS_PATH "server.c/"
 #define CONFIG_FILE "./config/bib.conf"
 #define MAX_CLIENTS 10 // temp, it must be 40
@@ -34,18 +33,27 @@
 // MSG ERROR Messaggio di errore. Questo tipo di messaggio viene spedito quando si è verificato un errore nel processare la richiesta del client.
 #define MSG_ERROR 'E'
 
-// global variables
-// TODO - eliminare qualunque cosa relativa alla termination flag
-pthread_t *tid;
+// # global variables
+// thread worker number (user parameter)
 int W;
-char *bib_path;
-BibData *bib;
-int server_socket;
+// name of the server (user parameter)
 char *name_bib;
-Queue *q;
-int log_file;
+// path of the data set (user parameter)
+char *bib_path;
+// file descriptor of the socket
+int server_socket;
+// path of the socket
 char *socket_path;
+// file descriptor of the log file
+int log_file;
+// array of thread ids
+pthread_t *tid;
+// shared data strucutre filled with all data set
+BibData *bib;
+// shared queue for the reqeuest
+Queue *q;
 
+// strut passed to the thread workers
 typedef struct WorkerArgs
 {
     BibData *bib;
@@ -60,10 +68,9 @@ void signalHandler(int signum);
 void writeServerInfo(const char *name, const char *socket_path);
 void rmServerInfo(const char *name);
 
-// TODO - quando il client riceve i record risultanti sono sempre preceduti da un qualche carattere a cazzo di cane
-
 int main(int argc, char *argv[])
 {
+    // checking user arguments (number and format)
     checkArgs(argc, argv);
 
     name_bib = argv[1];
@@ -71,15 +78,14 @@ int main(int argc, char *argv[])
     W = atoi(argv[3]);
 
     // termination handler registration
-    // TODO - segnale di terminazione (quando fatto levare parametro tid da queue_pop)
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
 
     // read the record file
     bib = createBibData(bib_path);
-    // if NULL the file on the path given doesn't exits
     if (bib == NULL)
     {
+        // if NULL the file on the path given doesn't exits
         printf("ERROR: the given path does not correspond to any existing file\n");
         exit(EXIT_FAILURE);
     }
@@ -87,7 +93,7 @@ int main(int argc, char *argv[])
     // create log file
     log_file = openLogFile(name_bib);
 
-    // * socket creation
+    //  socket creation
     server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
     if (server_socket == -1)
     {
@@ -96,7 +102,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // * socket address definition
+    // socket address definition
     struct sockaddr_un server_address;
     server_address.sun_family = AF_UNIX;
     socket_path = (char *)malloc(strlen(name_bib) + strlen("socket/") + strlen("_sock"));
@@ -109,7 +115,7 @@ int main(int argc, char *argv[])
     sprintf(socket_path, "socket/%s_sock", name_bib);
     strcpy(server_address.sun_path, socket_path);
 
-    // * association of the socket to the address
+    // association of the socket to the address
     if (bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) == -1)
     {
         // error handling
@@ -117,7 +123,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // * Listen to the socket for incoming connections
+    // Listen to the socket for incoming connections
     if (listen(server_socket, MAX_CLIENTS) == -1)
     {
         // error handling
@@ -128,6 +134,7 @@ int main(int argc, char *argv[])
     // write server info in the conf file
     writeServerInfo(name_bib, socket_path);
 
+    // declaration and initialization of the share queue for the requests
     q = (Queue *)malloc(sizeof(Queue));
     if (q == NULL)
     {
@@ -137,7 +144,7 @@ int main(int argc, char *argv[])
     }
     queue_init(q);
 
-    // thread creation
+    // thread worker creation
     tid = (pthread_t *)malloc(sizeof(pthread_t) * W);
     if (tid == NULL)
     {
@@ -147,6 +154,7 @@ int main(int argc, char *argv[])
     }
     for (int i = 0; i < W; i++)
     {
+        // declaration and initialization of the struct for the thread worker arguments
         WorkerArgs *args = (WorkerArgs *)malloc(sizeof(WorkerArgs));
         if (args == NULL)
         {
@@ -159,10 +167,10 @@ int main(int argc, char *argv[])
         pthread_create(&tid[i], NULL, worker, (void *)args);
     }
 
-    // TODO - poi la guardia del while dovrà essere gestita con il segnale di terminazione
-    // * main cycle
+    // main cycle
     while (1)
     {
+        // accept connection
         int client_fd = accept(server_socket, NULL, NULL);
         if (client_fd == -1)
         {
@@ -170,8 +178,10 @@ int main(int argc, char *argv[])
             perror("accept failed");
             exit(EXIT_FAILURE);
         }
+        // take request from the client on the socket
         char *data, type = readData(client_fd, &data);
 
+        // check the format of the request and fill the struct
         Request *req = requestFormatCheck(data, type, client_fd);
         if (req == NULL)
         {
@@ -183,6 +193,7 @@ int main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             }
             req->senderFD = client_fd;
+            // size = -1 is the sentinel for the error msg
             req->size = -1;
         }
 
@@ -194,30 +205,30 @@ int main(int argc, char *argv[])
 
 void *worker(void *arg)
 {
-    // TODO - il server taglia gli ultimi caratteri dei msg che manda al client
     // take data from arg data structure
-    // TODO - q resa globale, levarla da WorkerArgs
     BibData *bib = ((WorkerArgs *)arg)->bib;
-    // int log_file = ((WorkerArgs *)arg)->log_file;
 
     while (1)
     {
         // take request from shared data queue
         void *data = queue_pop(q);
+        // check if the popped data is the termination sentinel
         if ((*((int *)data)) == TERMINATION_SENTINEL)
         {
             return NULL;
         }
 
+        // cast data to the right type
         Request *req = ((Request *)data);
 
         if (req == NULL)
         {
             return NULL;
         }
+
+        // check the sentinel for the error msg
         if (req->size == -1)
         {
-            // request error
             sendData(req->senderFD, MSG_ERROR, "");
         }
         else
@@ -229,10 +240,12 @@ void *worker(void *arg)
             {
                 // nothing find
                 sendData(req->senderFD, MSG_NO, "");
+                // update log file
                 req->loan ? logLoan(log_file, "", 0) : logQuery(log_file, "", 0);
             }
             else
             {
+                // initializing size and the string to send to the client
                 int size = 0;
                 char *data = (char *)calloc(1, sizeof(char));
                 if (data == NULL)
@@ -241,30 +254,21 @@ void *worker(void *arg)
                     perror(THIS_PATH "worker - data allocation failed");
                     exit(EXIT_FAILURE);
                 }
+                // iter the records that matched with the request
                 for (int i = 0; i < response->size; i++)
                 {
                     // reallocation of data for the string to append
                     size += strlen(bib->book[response->pos[i]]);
                     data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 2);
-                    
+
                     // concat the strings
                     strcat(data, bib->book[response->pos[i]]);
 
                     data[size + 1] = '\n';
                 }
 
-                // fix the format
-                int i = size;
-                while (data[i] == '\n' || data[i] == '\0')
-                {
-                    // if (data[i] == '\n')
-                    // {
-                    //     size--;
-                    // }
-                    i--;
-                }
+                // end string sign
                 data[++size] = '\0';
-
 
                 // remove strange char at the beginning
                 i = 0;
@@ -337,6 +341,7 @@ char readData(int clientFD, char **data)
         perror(THIS_PATH "readData - type reading failed");
         exit(EXIT_FAILURE);
     }
+
     // read length
     length = receive_int(clientFD);
     *data = (char *)malloc((length + 1) * sizeof(char));
@@ -346,6 +351,8 @@ char readData(int clientFD, char **data)
         perror(THIS_PATH "readData - data failed");
         exit(EXIT_FAILURE);
     }
+
+    // read data
     bytesread = read(clientFD, *data, length);
     if (bytesread == -1)
     {
@@ -353,7 +360,10 @@ char readData(int clientFD, char **data)
         perror(THIS_PATH "readData - data reading failed");
         exit(EXIT_FAILURE);
     }
+
+    // end string sign
     (*data)[bytesread] = '\0';
+
     return type;
 }
 
@@ -365,32 +375,22 @@ char readData(int clientFD, char **data)
 */
 void signalHandler(int signum)
 {
-    // // termination_flag = true;
-    // @ temp test
-    printf("\nTermination signal received: %d\n", signum);
     // remove this server infos from conf file
-    // @ temp test
-    printf("\trimozione info da bib.conf\n");
     rmServerInfo(name_bib);
 
-    // Insert a termination sentinel in the shared reqeust queue, so the threads worker can read all the reqeust and after and themself
-    // @ temp test
-    printf("\tinserimento termination sentinel nella coda\n");
+    // Insert W termination sentinels (one for each thread worker) in the shared reqeust queue, so the threads worker can read all the reqeust and after and themself
     int *temp = (int *)malloc(sizeof(int));
     *temp = TERMINATION_SENTINEL;
-    // @ temp test
     for (int i = 0; i < W; i++)
     {
         queue_push((void *)temp, q);
     }
 
     // end log file writing
-    // in teoria lo fanno i worker, quindi è compreso nel punto sopra
     close(log_file);
 
     // write new record_file
     // TODO - per ora nuovo file di record in una copia temporanea, per mantenere l'originale
-    printf("\tupdating record file\n");
     char *temp_path = (char *)malloc(sizeof(char) * (strlen(bib_path) + strlen("_copy")));
     strcpy(temp_path, bib_path);
     strcat(temp_path, "_copy");
@@ -402,7 +402,6 @@ void signalHandler(int signum)
     }
 
     // close server socket
-    printf("\tclosing server socket\n");
     close(server_socket);
     unlink(socket_path);
     if (remove(socket_path) != 0)
@@ -459,11 +458,10 @@ void checkArgs(int argc, char *argv[])
 */
 void writeServerInfo(const char *name, const char *socket_path)
 {
-    // TODO - controllare se il nome è già presente, in caso restituire "Errore: biblioteca già presente nel file di configurazione"
-    FILE *config_file = fopen(CONFIG_FILE, "a"); // Open the file in append mod
+    // Open the file in append mod
+    FILE *config_file = fopen(CONFIG_FILE, "a"); 
     if (config_file == NULL)
     {
-        // @ temp test
         perror(THIS_PATH "writeServerInfo - Error opening config file");
     }
 
@@ -475,14 +473,16 @@ void writeServerInfo(const char *name, const char *socket_path)
 
 /*
 ### Description
-    Remove `bib_server_name bib_server_path` from the conf file (when the server terminates and closes the socket)
+    Remove `bib_server_name bib_server_path` from the conf file (when the server terminates and closes the socket). 
+    A temporary file is created, filled only with information from other servers and finally replaced with the original.
 ### Parameters
     - `const char *name` is the name (bib_server_name) of the bib server to remove
 */
 void rmServerInfo(const char *name)
 {
-    // TODO - se termina prima che il client faccia richieste ok, altrimenti da segmentation fault (a volte)
+    // Open the file in read/write mod
     FILE *config_file = fopen(CONFIG_FILE, "rw");
+
     if (config_file == NULL)
     {
         // error handling
@@ -490,6 +490,7 @@ void rmServerInfo(const char *name)
         exit(EXIT_FAILURE);
     }
 
+    // open a temp file
     FILE *temp_file = fopen("temp.conf", "w");
     if (temp_file == NULL)
     {
@@ -498,6 +499,7 @@ void rmServerInfo(const char *name)
         exit(EXIT_FAILURE);
     }
 
+    // temp variables to read name and path in each row of the original file
     char *temp_name = (char *)malloc(sizeof(char) * 100);
     if (temp_name == NULL)
     {
@@ -512,26 +514,30 @@ void rmServerInfo(const char *name)
         perror(THIS_PATH "rmServerInfo - temp_path allocation failed");
         exit(EXIT_FAILURE);
     }
+
+    // read each line
     while (fscanf(config_file, "%s %s", temp_name, temp_path) == 1)
     {
-        if (strcmp(temp_name, name) == 0)
+        if (strcmp(temp_name, name) != 0)
         {
-            // @ temp test
-            printf("RMsERVERiNFO - removed\n");
-        }
-        else
-        {
+            // if isn't the name of the current server, write it and the path in the temp file
             fprintf(temp_file, "%s %s\n", temp_name, temp_path);
         }
     }
+
+    // close files
     fclose(config_file);
     fclose(temp_file);
+
+    // remove the original file
     if (remove(CONFIG_FILE) != 0)
     {
         perror(THIS_PATH "rmServerInfo - Errore nella rimozione del file originale");
         exit(EXIT_FAILURE);
     }
-    if (rename("temp.conf", "config/bib.conf") != 0)
+
+    // rename the temp file with the name of the original name
+    if (rename("temp.conf", CONFIG_FILE) != 0)
     {
         perror(THIS_PATH "rmServerInfo - Errore nel rinominare il file temporaneo");
         exit(EXIT_FAILURE);
