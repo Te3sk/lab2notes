@@ -415,7 +415,7 @@ void loanUpdate(BibData *bib, Response *response)
             // add 30 days
             updateDate(tm_now, 30);
             // format the date in a string
-            strftime(expireDate, 31, "prestito: %d-%m-%Y %H:%M:%S", tm_now);
+            strftime(expireDate, 31, ";prestito: %d-%m-%Y %H:%M:%S", tm_now);
 
             // add the field:value in the record
             bib->book[response->pos[i]] = realloc(bib->book[response->pos[i]], (strlen(bib->book[response->pos[i]]) + strlen(expireDate) + 1));

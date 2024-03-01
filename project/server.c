@@ -36,7 +36,6 @@
 
 // global variables
 // TODO - eliminare qualunque cosa relativa alla termination flag
-// // _Atomic bool termination_flag = false;
 pthread_t *tid;
 int W;
 char *bib_path;
@@ -49,11 +48,8 @@ char *socket_path;
 
 typedef struct WorkerArgs
 {
-    Queue *q;
     BibData *bib;
-    // int log_file;
     pthread_t tid;
-    // bool *term_flag;
 } WorkerArgs;
 
 void *worker(void *arg);
@@ -158,11 +154,8 @@ int main(int argc, char *argv[])
             perror(THIS_PATH "main - args failed");
             exit(EXIT_FAILURE);
         }
-        args->q = q;
         args->bib = bib;
-        // args->log_file = log_file;
         args->tid = i;
-        // // args->term_flag = &termination_flag;
         pthread_create(&tid[i], NULL, worker, (void *)args);
     }
 
@@ -204,31 +197,20 @@ void *worker(void *arg)
     // TODO - il server taglia gli ultimi caratteri dei msg che manda al client
     // take data from arg data structure
     // TODO - q resa globale, levarla da WorkerArgs
-    // // Queue *queue = ((WorkerArgs *)arg)->q;
     BibData *bib = ((WorkerArgs *)arg)->bib;
     // int log_file = ((WorkerArgs *)arg)->log_file;
-    // // pthread_t stid = ((WorkerArgs *)arg)->tid;
 
-    // // while (!atomic_load(&termination_flag))
     while (1)
     {
-        // // if (atomic_load(&termination_flag))
-        // // {
-        // //     return NULL;
-        // // }
         // take request from shared data queue
         void *data = queue_pop(q);
-
         if ((*((int *)data)) == TERMINATION_SENTINEL)
         {
             return NULL;
         }
 
         Request *req = ((Request *)data);
-        // // if (atomic_load(&termination_flag))
-        // // {
-        // //     return NULL;
-        // // }
+
         if (req == NULL)
         {
             return NULL;
@@ -242,26 +224,17 @@ void *worker(void *arg)
         {
             // search in the shared data structure
             Response *response = searchRecord(bib, req);
+
             if (response == NULL)
             {
                 // nothing find
                 sendData(req->senderFD, MSG_NO, "");
-                // TODO - update log file
                 req->loan ? logLoan(log_file, "", 0) : logQuery(log_file, "", 0);
-                // @ temp test
-                printf("aggiornato file di log(in teoria)\n");
             }
             else
             {
-                // // // @ temp test
-                // // printf("WORKER\n");
-                // // for (int i = 0; i < response->size; i++)
-                // // {
-                // //     // @ temp test
-                // //     printf("\t%s\n", bib->book[response->pos[i]]);
-                // // }
                 int size = 0;
-                char *data = (char *)malloc(sizeof(char));
+                char *data = (char *)calloc(1, sizeof(char));
                 if (data == NULL)
                 {
                     // error handling
@@ -271,15 +244,13 @@ void *worker(void *arg)
                 for (int i = 0; i < response->size; i++)
                 {
                     // reallocation of data for the string to append
-                    data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 1);
-                    size += strlen(bib->book[response->pos[i]] + 1);
-                    while (bib->book[response->pos[i]][0] < 65 || bib->book[response->pos[i]][0] > 122)
-                    {
-                        bib->book[response->pos[i]]++;
-                    }
+                    size += strlen(bib->book[response->pos[i]]);
+                    data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 2);
+                    
                     // concat the strings
                     strcat(data, bib->book[response->pos[i]]);
-                    data[size] = '\n';
+
+                    data[size + 1] = '\n';
                 }
 
                 // fix the format
@@ -293,29 +264,24 @@ void *worker(void *arg)
                     i--;
                 }
                 data[++size] = '\0';
+
+
+                // remove strange char at the beginning
                 i = 0;
-                while (data[i] < 65 || data[i] > 122)
+                // while ((data[i] < 65 || data[i] > 122))
+                while ((data[i] < 48 || data[i] > 57) && (data[i] < 65 || data[i] > 90) && (data[i] < 97 || data[i] > 122))
                 {
                     data++;
                     i++;
                 }
 
-                // @ temp test
-                printf("WORKER - |%s|\n", data);
-
                 // send data to client
                 sendData(req->senderFD, MSG_RECORD, data);
 
                 // aggiorna file di log
-                req->loan ? logLoan(log_file, data, response->size): logQuery(log_file, data, response->size);
-                // @ temp test
-                printf("aggiornato file di log(in teoria)\n");
+                req->loan ? logLoan(log_file, data, response->size) : logQuery(log_file, data, response->size);
             }
         }
-        // // if (atomic_load(&termination_flag))
-        // // {
-        // //     return NULL;
-        // // }
     }
     return NULL;
 }
@@ -439,9 +405,10 @@ void signalHandler(int signum)
     printf("\tclosing server socket\n");
     close(server_socket);
     unlink(socket_path);
-    if(remove(socket_path) != 0) {
+    if (remove(socket_path) != 0)
+    {
         // error handling
-        perror(THIS_PATH"rmServerInfo - socket removing failed");
+        perror(THIS_PATH "rmServerInfo - socket removing failed");
     }
 
     exit(EXIT_SUCCESS);

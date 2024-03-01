@@ -7,7 +7,7 @@ CLIENT_BIN = client.out
 BIBACCESS_BIN = bin/bibaccess
 LIB_SRC = lib/bib_ds.c lib/pars.c lib/queue.c lib/log_func.c
 
-TEST_CLIENT_PARAM = --author="Luccio: Fabrizio" --title="Mathematical and Algorithmic Foundations of the Internet" -p
+TEST_CLIENT_PARAM = --author="Luccio, Fabrizio" --title="Mathematical and Algorithmic Foundations of the Internet" -p
 
 RANDOM := $(shell awk 'BEGIN{srand(); print int(1 + rand() * 5)}')
 TEST_SERVER_PARAM = bib_$$i bib$$i.txt $(RANDOM)
@@ -19,7 +19,7 @@ server: $(SERVER_SRC) $(LIB_SRC)
 	$(CC) $(SERVER_SRC) $(LIB_SRC) $(CFLAGS) -g -o $(SERVER_BIN) 
 
 server_run:
-	./$(SERVER_BIN) bib_1 bibData/bib1.txt 4
+	./$(SERVER_BIN) bib_1 bibData/bib1.txt 1
 
 client: $(CLIENT_SRC) $(LIB_SRC)
 	$(CC) $(CLIENT_SRC) $(LIB_SRC) $(CFLAGS) -o $(CLIENT_BIN)
