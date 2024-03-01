@@ -2,7 +2,9 @@
 
 #include "bib_ds.h"
 
+// max length of an entire record
 #define MAX_LENGTH 500      // TODO - understand how many bytes give
+// max length of a field name
 #define MAX_FIELD_LENGTH 30 // TODO - understand how many bytes give
 #define THIS_PATH "lib/bib_ds.c/"
 
@@ -25,7 +27,6 @@ FILE *fileFormatCheck(char *path)
         return NULL;
     }
 
-    // read the file line by line
     char *buffer = (char *)malloc(sizeof(char) * MAX_LENGTH);
     if (buffer == NULL)
     {
@@ -34,15 +35,19 @@ FILE *fileFormatCheck(char *path)
         exit(EXIT_FAILURE);
     }
 
+    // read the file line by line
     while (fgets(buffer, MAX_LENGTH, fp) != NULL)
     {
         if (strlen(buffer) == 0)
         {
+            // if the line readed is empty
             continue;
         }
+        // end sign at the end of the string
         buffer[strlen(buffer) - 1] = '\0';
-        char *token = strtok(buffer, ";");
 
+        // tokenize for ";" char
+        char *token = strtok(buffer, ";");
         while (token != NULL)
         {
             // delete spaces char
@@ -53,8 +58,10 @@ FILE *fileFormatCheck(char *path)
 
             if (strlen(token) != 0)
             {
+                // end sign at the end of the string
                 token[strlen(token) - 1] = '\0';
 
+                // check if there aren't ":" char OR if there are "," char and it is before ":"
                 if ((strstr(token, ":") == NULL) || ((strchr(token, ',')) && ((strchr(token, ',') - token) < (strchr(token, ':') - token))))
                 {
                     printf("wrong file format\n");
@@ -301,7 +308,7 @@ bool loanCheck(BibData *bib, Response *response)
     for (int i = 0; i < response->size; i++)
     {
         // make a copy of the record to not modify the original
-        char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1)); // TODO - free
+        char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1)); 
         strcpy(recordCopy, bib->book[response->pos[i]]);
 
         char *pos = strcasestr(recordCopy, "prestito:");
@@ -325,6 +332,8 @@ bool loanCheck(BibData *bib, Response *response)
 
             // add 30 days
             updateDate(&tm_data, 30);
+
+            free(recordCopy);
 
             // comparation
             time_t time_data = mktime(&tm_data);
@@ -500,7 +509,7 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
     req->field_values = (char **)malloc(sizeof(char *));
 
     // copy the request to mantain the original
-    char *request_copy = (char *)malloc(strlen(request)); // TODO - free
+    char *request_copy = (char *)malloc(strlen(request)); 
     strcpy(request_copy, request);
 
     // tokenize for ";"
@@ -559,6 +568,8 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
             req->field_codes[i] = "descrizione_fisica";
         }
     }
+
+    free(request_copy);
     return req;
 }
 
