@@ -647,3 +647,36 @@ int updateRecordFile(char *path, BibData *bib)
     fclose(fp);
     return 1;
 }
+
+// TODO - desc + translate
+void freeBib(BibData *bib) {
+    // TODO - ancora presenti su valgrind
+    for (int i = 0; i < bib->size; i++) {
+        free(bib->book[i]);
+    }
+    free(bib->book);
+
+    free(bib);
+}
+// // {
+// //     if (bib == NULL) {
+// //         // Non fare nulla se la struttura è NULL
+// //         return; 
+// //     }
+
+// //     // Libera la memoria allocata per ogni libro
+// //     if (bib->book != NULL) {
+// //         // @ temp test
+// //         printf("si\n");
+// //         for (int i = 0; i < bib->size; i++) {
+// //             free(bib->book[i]);
+// //         }
+// //         free(bib->book);
+// //     }
+
+// //     // Deallocazione del mutex
+// //     pthread_mutex_destroy(&bib->mutex);
+
+// //     // Infine, libera la memoria allocata per la struttura BibData
+// //     free(bib);
+// // }

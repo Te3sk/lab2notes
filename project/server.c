@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
     // socket address definition
     struct sockaddr_un server_address;
     server_address.sun_family = AF_UNIX;
-    socket_path = (char *)malloc(strlen(name_bib) + strlen("socket/") + strlen("_sock"));
+    socket_path = (char *)malloc(strlen(name_bib) + strlen("socket/") + strlen("_sock") + 1);
     if (socket_path == NULL)
     {
         // error handling
@@ -271,7 +271,7 @@ void *worker(void *arg)
                 data[++size] = '\0';
 
                 // remove strange char at the beginning
-                i = 0;
+                int i = 0;
                 // while ((data[i] < 65 || data[i] > 122))
                 while ((data[i] < 48 || data[i] > 57) && (data[i] < 65 || data[i] > 90) && (data[i] < 97 || data[i] > 122))
                 {
@@ -410,6 +410,8 @@ void signalHandler(int signum)
         perror(THIS_PATH "rmServerInfo - socket removing failed");
     }
 
+    freeBib(bib);
+    free(bib_path);
     exit(EXIT_SUCCESS);
 }
 

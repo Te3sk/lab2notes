@@ -42,4 +42,6 @@ Request *requestFormatCheck(char *request, char type, int senderFD);
 
 int updateRecordFile(char *path, BibData *bib);
 
+void freeBib(BibData *bib);
+
 #endif
