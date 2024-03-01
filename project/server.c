@@ -36,7 +36,7 @@
 
 // global variables
 // TODO - eliminare qualunque cosa relativa alla termination flag
-_Atomic bool termination_flag = false;
+// // _Atomic bool termination_flag = false;
 pthread_t *tid;
 int W;
 char *bib_path;
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
         args->bib = bib;
         // args->log_file = log_file;
         args->tid = i;
-        // args->term_flag = &termination_flag;
+        // // args->term_flag = &termination_flag;
         pthread_create(&tid[i], NULL, worker, (void *)args);
     }
 
@@ -209,12 +209,13 @@ void *worker(void *arg)
     // int log_file = ((WorkerArgs *)arg)->log_file;
     // // pthread_t stid = ((WorkerArgs *)arg)->tid;
 
-    while (!atomic_load(&termination_flag))
+    // // while (!atomic_load(&termination_flag))
+    while (1)
     {
-        if (atomic_load(&termination_flag))
-        {
-            return NULL;
-        }
+        // // if (atomic_load(&termination_flag))
+        // // {
+        // //     return NULL;
+        // // }
         // take request from shared data queue
         void *data = queue_pop(q);
 
@@ -224,10 +225,10 @@ void *worker(void *arg)
         }
 
         Request *req = ((Request *)data);
-        if (atomic_load(&termination_flag))
-        {
-            return NULL;
-        }
+        // // if (atomic_load(&termination_flag))
+        // // {
+        // //     return NULL;
+        // // }
         if (req == NULL)
         {
             return NULL;
@@ -311,10 +312,10 @@ void *worker(void *arg)
                 printf("aggiornato file di log(in teoria)\n");
             }
         }
-        if (atomic_load(&termination_flag))
-        {
-            return NULL;
-        }
+        // // if (atomic_load(&termination_flag))
+        // // {
+        // //     return NULL;
+        // // }
     }
     return NULL;
 }
@@ -398,7 +399,7 @@ char readData(int clientFD, char **data)
 */
 void signalHandler(int signum)
 {
-    termination_flag = true;
+    // // termination_flag = true;
     // @ temp test
     printf("\nTermination signal received: %d\n", signum);
     // remove this server infos from conf file

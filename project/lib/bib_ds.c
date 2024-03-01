@@ -569,7 +569,7 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         }
     }
 
-    free(request_copy);
+    // // free(request_copy);
     return req;
 }
 
