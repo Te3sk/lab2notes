@@ -16,7 +16,7 @@ TEST_SERVER_PARAM = bib_$$i bib$$i.txt $(RANDOM)
 all: server client
 
 server_leak_full: $(SERVER_SRC) $(LIB_SRC)
-	valgrind --leak-check=full --show-leak-kinds=all ./$(SERVER_BIN) bib_1 bibData/bib1.txt 1
+	valgrind --leak-check=full --show-leak-kinds=all -s ./$(SERVER_BIN) bib_1 bibData/bib1.txt 1
 
 server_leak: $(SERVER_SRC) $(LIB_SRC)
 	valgrind ./$(SERVER_BIN) bib_1 bibData/bib1.txt 1

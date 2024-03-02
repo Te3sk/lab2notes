@@ -67,6 +67,7 @@ void checkArgs(int argc, char *argv[]);
 void signalHandler(int signum);
 void writeServerInfo(const char *name, const char *socket_path);
 void rmServerInfo(const char *name);
+void freeMem();
 
 int main(int argc, char *argv[])
 {
@@ -87,6 +88,7 @@ int main(int argc, char *argv[])
     {
         // if NULL the file on the path given doesn't exits
         printf("ERROR: the given path does not correspond to any existing file\n");
+        freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -99,6 +101,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror("socket creation failed");
+        freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -110,6 +113,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror(THIS_PATH "main - socket_path allocation failed");
+        freeMem();
         exit(EXIT_FAILURE);
     }
     sprintf(socket_path, "socket/%s_sock", name_bib);
@@ -120,6 +124,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror("bind failed");
+        freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -128,6 +133,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror("listen failed");
+        freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -140,6 +146,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror(THIS_PATH "main - q allocation failed");
+        freeMem();
         exit(EXIT_FAILURE);
     }
     queue_init(q);
@@ -150,6 +157,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror(THIS_PATH "main - tid[] allocation failed");
+        freeMem();
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < W; i++)
@@ -160,6 +168,7 @@ int main(int argc, char *argv[])
         {
             // error handling
             perror(THIS_PATH "main - args failed");
+            freeMem();
             exit(EXIT_FAILURE);
         }
         args->bib = bib;
@@ -176,6 +185,7 @@ int main(int argc, char *argv[])
         {
             // error handling
             perror("accept failed");
+            freeMem();
             exit(EXIT_FAILURE);
         }
         // take request from the client on the socket
@@ -190,6 +200,7 @@ int main(int argc, char *argv[])
             {
                 // error handling
                 perror(THIS_PATH "main - req allocation failed");
+                freeMem();
                 exit(EXIT_FAILURE);
             }
             req->senderFD = client_fd;
@@ -210,16 +221,17 @@ void *worker(void *arg)
 
     while (1)
     {
-        // take request from shared data queue
-        void *data = queue_pop(q);
-        // check if the popped data is the termination sentinel
-        if ((*((int *)data)) == TERMINATION_SENTINEL)
+        // take request from shared queue
+        void *value = queue_pop(q);
+        // check if the popped value is the termination sentinel
+        if ((*((int *)value)) == TERMINATION_SENTINEL)
         {
+            free(arg);
             return NULL;
         }
 
-        // cast data to the right type
-        Request *req = ((Request *)data);
+        // cast value to the right type
+        Request *req = ((Request *)value);
 
         if (req == NULL)
         {
@@ -242,6 +254,7 @@ void *worker(void *arg)
                 sendData(req->senderFD, MSG_NO, "");
                 // update log file
                 req->loan ? logLoan(log_file, "", 0) : logQuery(log_file, "", 0);
+                free_request(req);
             }
             else
             {
@@ -284,9 +297,14 @@ void *worker(void *arg)
 
                 // aggiorna file di log
                 req->loan ? logLoan(log_file, data, response->size) : logQuery(log_file, data, response->size);
+                free_request(req);
+                free(data);
             }
         }
+        // free(value);
+
     }
+    free(arg);
     return NULL;
 }
 
@@ -377,7 +395,6 @@ void signalHandler(int signum)
 {
     // remove this server infos from conf file
     rmServerInfo(name_bib);
-
     // Insert W termination sentinels (one for each thread worker) in the shared reqeust queue, so the threads worker can read all the reqeust and after and themself
     int *temp = (int *)malloc(sizeof(int));
     *temp = TERMINATION_SENTINEL;
@@ -386,20 +403,10 @@ void signalHandler(int signum)
         queue_push((void *)temp, q);
     }
 
+    free(temp);
+
     // end log file writing
     close(log_file);
-
-    // write new record_file
-    // TODO - per ora nuovo file di record in una copia temporanea, per mantenere l'originale
-    char *temp_path = (char *)malloc(sizeof(char) * (strlen(bib_path) + strlen("_copy")));
-    strcpy(temp_path, bib_path);
-    strcat(temp_path, "_copy");
-    if (updateRecordFile(temp_path, bib) < 0)
-    {
-        // error handling
-        printf("%sSignalHandler - error while updating record file\n", THIS_PATH);
-        exit(EXIT_FAILURE);
-    }
 
     // close server socket
     close(server_socket);
@@ -409,9 +416,19 @@ void signalHandler(int signum)
         // error handling
         perror(THIS_PATH "rmServerInfo - socket removing failed");
     }
+    // @ temp test
+    printf("ok\n");
 
-    freeBib(bib);
-    free(bib_path);
+    // write new record_file
+    // TODO - per ora nuovo file di record in una copia temporanea, per mantenere l'originale
+    if (updateRecordFile(bib_path, bib) < 0)
+    {
+        // error handling
+        printf("%sSignalHandler - error while updating record file\n", THIS_PATH);
+        exit(EXIT_FAILURE);
+    }
+
+    freeMem();
     exit(EXIT_SUCCESS);
 }
 
@@ -461,7 +478,7 @@ void checkArgs(int argc, char *argv[])
 void writeServerInfo(const char *name, const char *socket_path)
 {
     // Open the file in append mod
-    FILE *config_file = fopen(CONFIG_FILE, "a"); 
+    FILE *config_file = fopen(CONFIG_FILE, "a");
     if (config_file == NULL)
     {
         perror(THIS_PATH "writeServerInfo - Error opening config file");
@@ -475,7 +492,7 @@ void writeServerInfo(const char *name, const char *socket_path)
 
 /*
 ### Description
-    Remove `bib_server_name bib_server_path` from the conf file (when the server terminates and closes the socket). 
+    Remove `bib_server_name bib_server_path` from the conf file (when the server terminates and closes the socket).
     A temporary file is created, filled only with information from other servers and finally replaced with the original.
 ### Parameters
     - `const char *name` is the name (bib_server_name) of the bib server to remove
@@ -501,30 +518,37 @@ void rmServerInfo(const char *name)
         exit(EXIT_FAILURE);
     }
 
-    // temp variables to read name and path in each row of the original file
-    char *temp_name = (char *)malloc(sizeof(char) * 100);
-    if (temp_name == NULL)
-    {
-        // error handling
-        perror(THIS_PATH "rmServerInfo - temp_name allocation failed");
-        exit(EXIT_FAILURE);
-    }
-    char *temp_path = (char *)malloc(sizeof(char) * 100);
-    if (temp_path == NULL)
-    {
-        // error handling
-        perror(THIS_PATH "rmServerInfo - temp_path allocation failed");
-        exit(EXIT_FAILURE);
-    }
+    // // // temp variables to read name and path in each row of the original file
+    // // size_t name_size = strlen(name) + 1 + 1;
+    // // char *temp_name = (char *)malloc(sizeof(char) * name_size);
+    // // if (temp_name == NULL)
+    // // {
+    // //     // error handling
+    // //     perror(THIS_PATH "rmServerInfo - temp_name allocation failed");
+    // //     exit(EXIT_FAILURE);
+    // // }
+    // // size_t path_size = strlen("socket/") + strlen(name) + strlen("__sock") + 1 + 1;
+    // // char *temp_path = (char *)malloc(sizeof(char) * path_size);
+    // // if (temp_path == NULL)
+    // // {
+    // //     // error handling
+    // //     perror(THIS_PATH "rmServerInfo - temp_path allocation failed");
+    // //     exit(EXIT_FAILURE);
+    // // }
 
     // read each line
+    char *temp_name = (char *)malloc(sizeof(char) * 1024);
+    char *temp_path = (char *)malloc(sizeof(char) * 1024);
     while (fscanf(config_file, "%s %s", temp_name, temp_path) == 1)
     {
+        // TODO - error handling
         if (strcmp(temp_name, name) != 0)
         {
             // if isn't the name of the current server, write it and the path in the temp file
             fprintf(temp_file, "%s %s\n", temp_name, temp_path);
         }
+        // free(temp_name);
+        // free(temp_path);
     }
 
     // close files
@@ -544,4 +568,25 @@ void rmServerInfo(const char *name)
         perror(THIS_PATH "rmServerInfo - Errore nel rinominare il file temporaneo");
         exit(EXIT_FAILURE);
     }
+}
+
+// TODO - desc
+void freeMem()
+{
+    if (bib != NULL)
+    {
+        freeBib(bib);
+        bib = NULL;
+    }
+
+    if (socket_path != NULL)
+    {
+        free(socket_path);
+        socket_path = NULL;
+    }
+
+    free(tid);
+
+    free(q);
+    
 }

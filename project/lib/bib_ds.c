@@ -3,7 +3,7 @@
 #include "bib_ds.h"
 
 // max length of an entire record
-#define MAX_LENGTH 500      // TODO - understand how many bytes give
+#define MAX_LENGTH 500 // TODO - understand how many bytes give
 // max length of a field name
 #define MAX_FIELD_LENGTH 30 // TODO - understand how many bytes give
 #define THIS_PATH "lib/bib_ds.c/"
@@ -106,24 +106,48 @@ BibData *createBibData(char *path)
 
     // allocate memory for the book array
     bib->size = 0;
-    bib->book = malloc((bib->size + 1) * sizeof(char *));
+    bib->book = malloc(sizeof(char *));
     if (bib->book == NULL)
     {
         // error handling
-        perror(THIS_PATH "/createBibData - bib->book allocation failed");
-        exit(EXIT_FAILURE);
+        perror(THIS_PATH "createBibData - bib->book allocation failed");
+        fclose(fp);
+        free(bib);
+        return NULL;
     }
 
-    bib->book[bib->size] = (char *)malloc((MAX_LENGTH + 1) * sizeof(char));
-    while (fgets(bib->book[bib->size], MAX_LENGTH, fp) != NULL)
+    char *line = (char *)malloc(MAX_LENGTH * sizeof(char));
+    while (fgets(line, MAX_LENGTH, fp) != NULL)
     {
-        bib->book[bib->size][strlen(bib->book[bib->size]) - 1] = '\0';
+        bib->book[bib->size] = (char *)malloc((strlen(line) + 1) * sizeof(char));
+        if (bib->book[bib->size] == NULL)
+        {
+            // error handling
+            perror(THIS_PATH "createBibData - bib->book[bib->size] allocation failed");
+            exit(EXIT_FAILURE);
+        }
+
+        strcpy(bib->book[bib->size], line);
         bib->size++;
-        bib->book = realloc(bib->book, (bib->size + 1) * sizeof(char *));
-        bib->book[bib->size] = (char *)malloc((MAX_LENGTH + 1) * sizeof(char));
+
+        char **temp = realloc(bib->book, (bib->size + 1) * sizeof(char *));
+        if (temp == NULL)
+        {
+            // error handling
+            perror(THIS_PATH "createBibData - temp reallocation failed");
+            fclose(fp);
+            freeBib(bib);
+            return NULL;
+        }
+        bib->book = temp;
     }
+
+    free(line);
 
     pthread_mutex_init(&(bib->mutex), NULL);
+
+    // close file
+    fclose(fp);
 
     return bib;
 }
@@ -308,7 +332,7 @@ bool loanCheck(BibData *bib, Response *response)
     for (int i = 0; i < response->size; i++)
     {
         // make a copy of the record to not modify the original
-        char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1)); 
+        char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1));
         strcpy(recordCopy, bib->book[response->pos[i]]);
 
         char *pos = strcasestr(recordCopy, "prestito:");
@@ -509,7 +533,7 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
     req->field_values = (char **)malloc(sizeof(char *));
 
     // copy the request to mantain the original
-    char *request_copy = (char *)malloc(strlen(request)); 
+    char *request_copy = (char *)malloc(strlen(request));
     strcpy(request_copy, request);
 
     // tokenize for ";"
@@ -527,6 +551,11 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         char *value = pos + 1;
         req->field_values = realloc(req->field_values, (req->size + 1) * sizeof(char *));
         req->field_values[req->size] = (char *)malloc(strlen(value) + 1);
+        if(req->field_values[req->size] == NULL){
+            // error handling
+            perror(THIS_PATH"requestFormatCheck - req->field-values[req->size] allocation failed");
+            exit(EXIT_FAILURE);
+        }
         strcpy(req->field_values[req->size], value);
         req->field_values[req->size][strlen(req->field_values[req->size])] = '\0';
         // separate code and values in 'token'
@@ -534,6 +563,11 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         // save codes
         req->field_codes = realloc(req->field_codes, (req->size + 1) * sizeof(char *));
         req->field_codes[req->size] = (char *)malloc(strlen(token) + 1);
+        if(req->field_codes[req->size] == NULL){
+            // error handling
+            perror(THIS_PATH"requestFormatCheck - req->field_codes[req->size] allocation failed");
+            exit(EXIT_FAILURE);
+        }
         strcpy(req->field_codes[req->size], token);
         req->field_codes[req->size][strlen(req->field_codes[req->size])] = '\0';
         token = strtok(NULL, ";");
@@ -649,34 +683,21 @@ int updateRecordFile(char *path, BibData *bib)
 }
 
 // TODO - desc + translate
-void freeBib(BibData *bib) {
+void freeBib(BibData *bib)
+{
     // TODO - ancora presenti su valgrind
-    for (int i = 0; i < bib->size; i++) {
+
+    if (bib == NULL)
+    {
+        return;
+    }
+
+    // for (int i = 0; i < bib->size; i++)
+    for (int i = 0; i < bib->size; i++)
+    {
         free(bib->book[i]);
     }
     free(bib->book);
 
     free(bib);
 }
-// // {
-// //     if (bib == NULL) {
-// //         // Non fare nulla se la struttura è NULL
-// //         return; 
-// //     }
-
-// //     // Libera la memoria allocata per ogni libro
-// //     if (bib->book != NULL) {
-// //         // @ temp test
-// //         printf("si\n");
-// //         for (int i = 0; i < bib->size; i++) {
-// //             free(bib->book[i]);
-// //         }
-// //         free(bib->book);
-// //     }
-
-// //     // Deallocazione del mutex
-// //     pthread_mutex_destroy(&bib->mutex);
-
-// //     // Infine, libera la memoria allocata per la struttura BibData
-// //     free(bib);
-// // }

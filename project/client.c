@@ -62,7 +62,6 @@ int main(int argc, char *argv[])
         server_addr.sun_family = AF_UNIX;
         strcpy(server_addr.sun_path, serverInfo[i].socket_path);
 
-
         if (connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
         {
             // error handling
@@ -74,7 +73,6 @@ int main(int argc, char *argv[])
         printf("connected with %s\n", serverInfo->socket_path);
 
         sendData(socket_fd, loan ? MSG_LOAN : MSG_QUERY, parameters);
-
 
         // @ temp test
 
@@ -183,7 +181,7 @@ char *readData(int socketFD)
     - `int *count` is a pointer to an integer inside which is inserted how many server are in the file
 ### Return value
     On success return a `ServerInfo` variable filled with names and paths
-    On fail print an error msg and exit 
+    On fail print an error msg and exit
 */
 ServerInfo *readServerInfo(int *count)
 {
@@ -203,8 +201,8 @@ ServerInfo *readServerInfo(int *count)
         perror(THIS_PATH "readServerInfo - serverInfo allocation failed");
         exit(EXIT_FAILURE);
     }
-    char*temp_name = (char*)malloc(sizeof(char) * 100);
-    char*temp_path = (char*)malloc(sizeof(char) * 100);
+    char *temp_name = (char *)malloc(sizeof(char) * 100);
+    char *temp_path = (char *)malloc(sizeof(char) * 100);
 
     // TODO - capire perché si invertono nome e path (a volte)
     while (fscanf(config_file, "%s %s", temp_name, temp_path) == 2)
