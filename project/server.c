@@ -33,6 +33,13 @@
 // MSG ERROR Messaggio di errore. Questo tipo di messaggio viene spedito quando si è verificato un errore nel processare la richiesta del client.
 #define MSG_ERROR 'E'
 
+// strut passed to the thread workers
+typedef struct WorkerArgs
+{
+    BibData *bib;
+    pthread_t tid;
+} WorkerArgs;
+
 // # global variables
 // thread worker number (user parameter)
 int W;
@@ -52,15 +59,10 @@ pthread_t *tid;
 BibData *bib;
 // shared queue for the reqeuest
 Queue *q;
+// array of struct to pass arguments to the workers threads
+WorkerArgs **args;
 
-// strut passed to the thread workers
-typedef struct WorkerArgs
-{
-    BibData *bib;
-    pthread_t tid;
-} WorkerArgs;
-
-void *worker(void *arg);
+void *worker();
 void sendData(int clientFD, char type, char *data);
 char readData(int clientFD, char **data);
 void checkArgs(int argc, char *argv[]);
@@ -160,20 +162,24 @@ int main(int argc, char *argv[])
         freeMem();
         exit(EXIT_FAILURE);
     }
+
+    // // args = (WorkerArgs **)malloc(sizeof(WorkerArgs *) * W);
+    // // if (args == NULL)
+    // // {
+    // //     // error handling
+    // //     perror(THIS_PATH "main - args failed");
+    // //     freeMem();
+    // //     exit(EXIT_FAILURE);
+    // // }
+
     for (int i = 0; i < W; i++)
     {
         // declaration and initialization of the struct for the thread worker arguments
-        WorkerArgs *args = (WorkerArgs *)malloc(sizeof(WorkerArgs));
-        if (args == NULL)
-        {
-            // error handling
-            perror(THIS_PATH "main - args failed");
-            freeMem();
-            exit(EXIT_FAILURE);
-        }
-        args->bib = bib;
-        args->tid = i;
-        pthread_create(&tid[i], NULL, worker, (void *)args);
+        // // args[i] = (WorkerArgs *)malloc(sizeof(WorkerArgs *));
+        // // args[i]->bib = bib;
+        // // args[i]->tid = i;
+        // // pthread_create(&tid[i], NULL, worker, (void *)args);
+        pthread_create(&tid[i], NULL, worker, NULL);
     }
 
     // main cycle
@@ -214,10 +220,9 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void *worker(void *arg)
+void *worker()
 {
     // take data from arg data structure
-    BibData *bib = ((WorkerArgs *)arg)->bib;
 
     while (1)
     {
@@ -226,7 +231,7 @@ void *worker(void *arg)
         // check if the popped value is the termination sentinel
         if ((*((int *)value)) == TERMINATION_SENTINEL)
         {
-            free(arg);
+            // free(arg);
             return NULL;
         }
 
@@ -250,11 +255,13 @@ void *worker(void *arg)
 
             if (response == NULL)
             {
+                // @ temp test
+                printf("not find\n");
                 // nothing find
                 sendData(req->senderFD, MSG_NO, "");
                 // update log file
                 req->loan ? logLoan(log_file, "", 0) : logQuery(log_file, "", 0);
-                free_request(req);
+                // free_request(req);
             }
             else
             {
@@ -297,14 +304,13 @@ void *worker(void *arg)
 
                 // aggiorna file di log
                 req->loan ? logLoan(log_file, data, response->size) : logQuery(log_file, data, response->size);
-                free_request(req);
+                // free_request(req);
                 free(data);
             }
         }
         // free(value);
-
     }
-    free(arg);
+    // free(arg);
     return NULL;
 }
 
@@ -393,6 +399,8 @@ char readData(int clientFD, char **data)
 */
 void signalHandler(int signum)
 {
+    // @ temp test
+    printf("segnale di terminazione : %d\n", signum);
     // remove this server infos from conf file
     rmServerInfo(name_bib);
     // Insert W termination sentinels (one for each thread worker) in the shared reqeust queue, so the threads worker can read all the reqeust and after and themself
@@ -411,13 +419,6 @@ void signalHandler(int signum)
     // close server socket
     close(server_socket);
     unlink(socket_path);
-    if (remove(socket_path) != 0)
-    {
-        // error handling
-        perror(THIS_PATH "rmServerInfo - socket removing failed");
-    }
-    // @ temp test
-    printf("ok\n");
 
     // write new record_file
     // TODO - per ora nuovo file di record in una copia temporanea, per mantenere l'originale
@@ -427,6 +428,9 @@ void signalHandler(int signum)
         printf("%sSignalHandler - error while updating record file\n", THIS_PATH);
         exit(EXIT_FAILURE);
     }
+
+    // @ temp test
+    printf("ok\n");
 
     freeMem();
     exit(EXIT_SUCCESS);
@@ -585,8 +589,12 @@ void freeMem()
         socket_path = NULL;
     }
 
+    // // for (int i = 0; i < W; i++)
+    // // {
+    // //     free(args[i]);
+    // // }
+    // // free(args);
     free(tid);
 
     free(q);
-    
 }

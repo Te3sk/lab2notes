@@ -274,3 +274,17 @@ void send_int(int num, int fd)
         }
     } while (left > 0); // continue untill it send all bytes
 }
+
+// TODO - desc
+time_t date_extract(char *date) {
+    struct tm tm_data;
+    memset(&tm_data, 0, sizeof(struct tm));
+    strptime(date, "%d-%m-%Y %H:%M:%S", tm_data);
+    time_t converted = mktime(&tm_data);
+    if(converted == (time_t)-1){
+        // error handling
+        perror(THIS_PATH"date_extract - mktime failed");
+        exit(EXIT_FAILURE);
+    }
+    return converted;
+}

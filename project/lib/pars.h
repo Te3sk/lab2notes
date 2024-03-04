@@ -2,7 +2,7 @@
 #define PARS_H
 
 #include <stdbool.h>
-
+#include <time.h>
 /*
 ### Description
     Data structure type for a request by client. The server use it for more semplicity when searching in the record file
@@ -40,5 +40,6 @@ Request *requestParser(char *string);
 char *checkInputFormatNparser(int argc, char *argv[], bool *loan);
 int receive_int(int fd);
 void send_int(int num, int fd);
+time_t date_extract(char *date);
 
 #endif

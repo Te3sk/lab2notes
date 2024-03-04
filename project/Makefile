@@ -7,7 +7,8 @@ CLIENT_BIN = client.out
 BIBACCESS_BIN = bin/bibaccess
 LIB_SRC = lib/bib_ds.c lib/pars.c lib/queue.c lib/log_func.c
 
-TEST_CLIENT_PARAM = --author="Luccio, Fabrizio" --title="Mathematical and Algorithmic Foundations of the Internet" -p
+# TEST_CLIENT_PARAM = --author="Luccio, Fabrizio" --title="Mathematical and Algorithmic Foundations of the Internet"
+TEST_CLIENT_PARAM = --autore="Kernighan, Brian W." --titolo="Il linguaggio C (seconda Edizione)"
 
 RANDOM := $(shell awk 'BEGIN{srand(); print int(1 + rand() * 5)}')
 TEST_SERVER_PARAM = bib_$$i bib$$i.txt $(RANDOM)
@@ -16,7 +17,7 @@ TEST_SERVER_PARAM = bib_$$i bib$$i.txt $(RANDOM)
 all: server client
 
 server_leak_full: $(SERVER_SRC) $(LIB_SRC)
-	valgrind --leak-check=full --show-leak-kinds=all -s ./$(SERVER_BIN) bib_1 bibData/bib1.txt 1
+	valgrind --leak-check=full --show-leak-kinds=all -s ./$(SERVER_BIN) bib_1 bibData/bib2.txt 1
 
 server_leak: $(SERVER_SRC) $(LIB_SRC)
 	valgrind ./$(SERVER_BIN) bib_1 bibData/bib1.txt 1
@@ -25,7 +26,7 @@ server: $(SERVER_SRC) $(LIB_SRC)
 	$(CC) $(SERVER_SRC) $(LIB_SRC) $(CFLAGS) -g -o $(SERVER_BIN) 
 
 server_run:
-	./$(SERVER_BIN) bib_1 bibData/bib1.txt 1
+	./$(SERVER_BIN) bib_2 bibData/bib4.txt 1
 
 client: $(CLIENT_SRC) $(LIB_SRC)
 	$(CC) $(CLIENT_SRC) $(LIB_SRC) $(CFLAGS) -o $(CLIENT_BIN)

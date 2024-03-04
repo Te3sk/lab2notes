@@ -106,13 +106,13 @@ BibData *createBibData(char *path)
 
     // allocate memory for the book array
     bib->size = 0;
-    bib->book = malloc(sizeof(char *));
+    bib->book = (char **)malloc(sizeof(char *));
     if (bib->book == NULL)
     {
         // error handling
         perror(THIS_PATH "createBibData - bib->book allocation failed");
         fclose(fp);
-        free(bib);
+        // free(bib);
         return NULL;
     }
 
@@ -124,6 +124,8 @@ BibData *createBibData(char *path)
         {
             // error handling
             perror(THIS_PATH "createBibData - bib->book[bib->size] allocation failed");
+            fclose(fp);
+            // freeBib(bib);
             exit(EXIT_FAILURE);
         }
 
@@ -136,7 +138,7 @@ BibData *createBibData(char *path)
             // error handling
             perror(THIS_PATH "createBibData - temp reallocation failed");
             fclose(fp);
-            freeBib(bib);
+            // freeBib(bib);
             return NULL;
         }
         bib->book = temp;
@@ -163,11 +165,10 @@ BibData *createBibData(char *path)
 */
 bool recordMatch(char *record, Request *req)
 {
-
     bool found = false;
     // make a copy to not modify the original
 
-    char *recordCopy = (char *)malloc(strlen(record) * sizeof(char));
+    char *recordCopy = (char *)malloc((strlen(record) + 1) * sizeof(char));
     if (recordCopy == NULL)
     {
         // error handling
@@ -187,7 +188,6 @@ bool recordMatch(char *record, Request *req)
         // check if the field_codes match
         if (strncasecmp(req->field_codes[0], token, strlen(req->field_codes[0])) == 0)
         {
-
             // skip field_codes, spaces and ':' char
             token += strlen(req->field_codes[0]);
 
@@ -203,7 +203,7 @@ bool recordMatch(char *record, Request *req)
                     for (int i = 1; i < req->size; i++)
                     {
                         // make a copy to not modify the original
-                        char *secRecordCopy = (char *)malloc(strlen(record) * sizeof(char));
+                        char *secRecordCopy = (char *)malloc((strlen(record) + 1)* sizeof(char));
                         if (secRecordCopy == NULL)
                         {
                             // error handling
@@ -533,7 +533,7 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
     req->field_values = (char **)malloc(sizeof(char *));
 
     // copy the request to mantain the original
-    char *request_copy = (char *)malloc(strlen(request));
+    char *request_copy = (char *)malloc(sizeof(char) * (strlen(request) + 1));
     strcpy(request_copy, request);
 
     // tokenize for ";"
@@ -551,9 +551,10 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         char *value = pos + 1;
         req->field_values = realloc(req->field_values, (req->size + 1) * sizeof(char *));
         req->field_values[req->size] = (char *)malloc(strlen(value) + 1);
-        if(req->field_values[req->size] == NULL){
+        if (req->field_values[req->size] == NULL)
+        {
             // error handling
-            perror(THIS_PATH"requestFormatCheck - req->field-values[req->size] allocation failed");
+            perror(THIS_PATH "requestFormatCheck - req->field-values[req->size] allocation failed");
             exit(EXIT_FAILURE);
         }
         strcpy(req->field_values[req->size], value);
@@ -563,9 +564,10 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         // save codes
         req->field_codes = realloc(req->field_codes, (req->size + 1) * sizeof(char *));
         req->field_codes[req->size] = (char *)malloc(strlen(token) + 1);
-        if(req->field_codes[req->size] == NULL){
+        if (req->field_codes[req->size] == NULL)
+        {
             // error handling
-            perror(THIS_PATH"requestFormatCheck - req->field_codes[req->size] allocation failed");
+            perror(THIS_PATH "requestFormatCheck - req->field_codes[req->size] allocation failed");
             exit(EXIT_FAILURE);
         }
         strcpy(req->field_codes[req->size], token);
@@ -618,14 +620,62 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
     On fail print an error msg and return -1
 */
 int updateRecordFile(char *path, BibData *bib)
+/*{
+    FILE *temp_file = fopen("temp_file.txt", "w");
+    if(temp_file == NULL){
+        // error handling
+        perror(THIS_PATH"updateRecordFile - temp_file opening failed");
+        exit(EXIT_FAILURE);
+    }
+    // @ temp test
+    printf("before for\n");
+    
+
+    for (int i = 0; i < bib->size; i++) {
+        char *prestito = strstr(bib->book[i], "prestito:");
+        if (prestito != NULL) {
+
+            prestito += strlen("prestito:");
+
+            while(isspace(*prestito)) {
+                prestito++;
+            }
+
+            prestito[19] = '\0';
+
+
+            time_t date = date_extract(prestito);
+
+            time_t now = time(NULL);
+            
+            
+        } else {
+            // @ temp test
+            printf("no prestito\n");
+        }
+
+
+        fprintf(temp_file, "%s", bib->book[i]);
+    }
+    // fprintf(temp_file, "\0");
+    fputc('\0', temp_file);
+
+    fclose(temp_file);
+    return 1;
+}*/
 {
-    FILE *fp = fopen(path, "w");
+    // @ temp test
+    printf("path = (%s)\n", path);
+    FILE *fp = fopen("temp_record_file.txt", "w");
     if (fp == NULL)
     {
         // error handling
         perror(THIS_PATH "updateRecordFile - fopen failed");
         return -1;
     }
+
+    // @ temp test
+    printf("file aperto\n");
 
     for (int i = 0; i < bib->size; i++)
     {
@@ -638,12 +688,16 @@ int updateRecordFile(char *path, BibData *bib)
             free(copy);
             return -1;
         }
+        // @ temp test
+        printf("cpy ok\n");
         strcpy(copy, bib->book[i]);
         // search for "prestito" field
         char *pos = strcasestr(copy, "prestito:");
-        free(copy);
+        // free(copy);
         if (pos != NULL)
         {
+            // @ temp test
+            printf("prestito c'è, controllo..\n");
             // skip "prestito" and delete initial spaces if there are
             pos += strlen("prestito:");
             while (isspace(pos[0]))
@@ -651,21 +705,33 @@ int updateRecordFile(char *path, BibData *bib)
                 pos++;
             }
             pos[19] = '\0';
+            // @ temp test
+            printf("pos aggiornato (%s)\n", pos);
 
-            time_t now;
+            time_t *now;
             now = time(NULL);
+            // @ temp test
+            printf("now fatto\n");
 
             // parse the string
-            struct tm tm_data;
-            memset(&tm_data, 0, sizeof(struct tm));
-            strptime(pos, "%d-%m-%Y %H:%M:%S", &tm_data);
+            struct tm *tm_data;
+            memset(tm_data, 0, sizeof(struct tm));
+            strptime(pos, "%d-%m-%Y %H:%M:%S", tm_data);
+            // @ temp test
+            printf("stinga parsata\n");
 
             // comparation
-            time_t time_data = mktime(&tm_data);
+            time_t time_data = mktime(tm_data);
+            // @ temp test
+            printf("timedata fatto\n");
             double diff = difftime(time_data, now);
+            // @ temp test
+            printf("fatta differenza : %f\n", diff);
 
             if (diff <= 0)
             {
+                // @ temp test
+                printf("prestito scaduto\n");
                 // prestito scaduto -> rimuovi il campo prestito
                 char *start_prest = strstr(bib->book[i], "prestito:");
                 char *end_prest = strstr(bib->book[i], ";");
@@ -676,7 +742,26 @@ int updateRecordFile(char *path, BibData *bib)
 
         // write the record in the file
         fputs(bib->book[i], fp);
+        // @ temp test
+        printf("ite %d of %d ok\n", i, bib->size);
     }
+
+    // @ temp test
+    printf("fine for\n");
+
+    if(remove(path) != 0){
+        // error handling
+        perror(THIS_PATH"updateRecordFile - removing of original file record failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if(rename("temp_record_file.txt", path) != 0){
+        // error handling
+        perror(THIS_PATH"updateFileRecord - file renaming failed");
+        exit(EXIT_FAILURE);
+    }
+    // @ temp test
+    printf("finito updatefilerecord\n");
 
     fclose(fp);
     return 1;
