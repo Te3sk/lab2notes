@@ -32,7 +32,8 @@ Response *searchRecord(BibData *bib, Request *req);
 
 FILE *fileFormatCheck(char *path);
 
-bool loanCheck(BibData *bib, Response *response);
+// bool loanCheck(BibData *bib, Response *response);
+bool loanCheck(BibData *bib, int N, int *rec);
 
 void loanUpdate(BibData *bib, Response *response);
 
@@ -40,7 +41,7 @@ void updateDate(struct tm *date, int days);
 
 Request *requestFormatCheck(char *request, char type, int senderFD);
 
-int updateRecordFile(char *path, BibData *bib);
+int updateRecordFile(char *name_bib, char *path, BibData *bib);
 
 void freeBib(BibData *bib);
 

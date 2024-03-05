@@ -2,7 +2,6 @@
 #define PARS_H
 
 #include <stdbool.h>
-#include <time.h>
 /*
 ### Description
     Data structure type for a request by client. The server use it for more semplicity when searching in the record file

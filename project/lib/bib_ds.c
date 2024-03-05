@@ -203,7 +203,7 @@ bool recordMatch(char *record, Request *req)
                     for (int i = 1; i < req->size; i++)
                     {
                         // make a copy to not modify the original
-                        char *secRecordCopy = (char *)malloc((strlen(record) + 1)* sizeof(char));
+                        char *secRecordCopy = (char *)malloc((strlen(record) + 1) * sizeof(char));
                         if (secRecordCopy == NULL)
                         {
                             // error handling
@@ -304,7 +304,8 @@ Response *searchRecord(BibData *bib, Request *req)
 
     if (req->loan)
     {
-        response->loan = loanCheck(bib, response);
+        // response->loan = loanCheck(bib, response);
+        response->loan = loanCheck(bib, response->size, response->pos);
         if (response->loan)
         {
             loanUpdate(bib, response);
@@ -326,18 +327,29 @@ Response *searchRecord(BibData *bib, Request *req)
     Returne `true` if there isn't the field 'prestito' or if the loan is expired (30 days or more from the date) - THE BOOK CAN BE LOANED
     Returne `false` if the loan isn't expired - THE BOOK CAN'T BE LOANED
 */
-bool loanCheck(BibData *bib, Response *response)
+// bool loanCheck(BibData *bib, Response *response)
+bool loanCheck(BibData *bib, int N, int *rec)
 {
     // iter for the record that match with the request
-    for (int i = 0; i < response->size; i++)
+    // @ temp test
+    printf("N = %d\n", N);
+    // // for (int i = 0; i < response->size; i++)
+    for (int i = 0; i < N; i++)
     {
         // make a copy of the record to not modify the original
-        char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1));
-        strcpy(recordCopy, bib->book[response->pos[i]]);
+        // // char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1));
+        char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[rec[i]] + 1)));
+        // // strcpy(recordCopy, bib->book[response->pos[i]]);
+        strcpy(recordCopy, bib->book[rec[i]]);
+
+        // @ temp test
+        printf("\trecord[%d]: (%s)\n", rec[i], recordCopy);
 
         char *pos = strcasestr(recordCopy, "prestito:");
         if (pos != NULL)
         {
+            // @ temp test
+            printf("\t\tcampo prestito presente\n");
             // skip field_code and spaces and set the end of the string
             pos += strlen("prestito:");
             while (isspace(pos[0]))
@@ -365,17 +377,23 @@ bool loanCheck(BibData *bib, Response *response)
 
             if (diff <= 0)
             {
+                // @ temp test
+                printf("\t\t\tscaduto\n");
                 // time_data <= now
                 return true;
             }
             else
             {
+                // @ temp test
+                printf("\t\t\tnon scaduto\n");
                 // time_data > now
                 return false;
             }
         }
         else
         {
+            // @ temp test
+            printf("\t\tcampo prestito NON presente\n");
             return true;
         }
     }
@@ -391,12 +409,15 @@ bool loanCheck(BibData *bib, Response *response)
 */
 void loanUpdate(BibData *bib, Response *response)
 {
+    // @ temp test
+    printf("response->size = %d\n", response->size);
     for (int i = 0; i < response->size; i++)
     {
         char *pos = strstr(bib->book[response->pos[i]], "prestito");
         if (pos != NULL)
         {
-
+            // @ temp test
+            printf("sostituisco la data\n");
             char *expireDate = (char *)malloc(sizeof(char) * 29);
             if (expireDate == NULL)
             {
@@ -425,7 +446,8 @@ void loanUpdate(BibData *bib, Response *response)
         }
         else
         {
-
+            // @ temp test
+            printf("inserisco la data (da 0)\n");
             char *expireDate = (char *)malloc(sizeof(char) * 29);
             if (expireDate == NULL)
             {
@@ -619,7 +641,48 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
     On success return 1
     On fail print an error msg and return -1
 */
-int updateRecordFile(char *path, BibData *bib)
+int updateRecordFile(char *name_bib, char *path, BibData *bib)
+{
+    // @ temp test
+    printf("\tUPDATERECORDFILE\n");
+    // unique path of a temporary file
+    char *temp_path = (char *)malloc((strlen("temp_") + strlen(name_bib) + strlen("_record_file.txt")) * sizeof(char));
+    sprintf(temp_path, "temp_%s_record_file.txt", name_bib);
+    // @ temp test
+    printf("\tpath temporaneo: %s, path originale : %s\n", temp_path, path);
+
+    FILE *temp_record = fopen(temp_path, "w");
+    if (temp_record == NULL)
+    {
+        // error handling
+        perror(THIS_PATH "updateRecordFile - opening of temp record file failed");
+        exit(EXIT_FAILURE);
+    }
+    // @ temp test
+    printf("\tfile temporaneo aperto\n");
+
+    int *pos = (int *)malloc(bib->size * sizeof(int));
+    for (int i = 0; i < bib->size; i++)
+    {
+        pos[i] = i;
+        // @ temp test
+        printf("pos[%d] = %d\n", i, i);
+    }
+
+    // @ temp test
+    printf("\tarray di support creato\n");
+
+    // TODO - loan check non va bene per questa cosa, fare altra funzione o scrivere qui
+
+    // for (int i = 0; i < bib->size; i++)
+    // {
+    //     // @ temp test
+    //     printf("loan ? - %s\n", loanCheck(bib, bib->size, pos) ? "non presente o scaduto" : "presente");
+    //     // fputs(bib->book[i], temp_record);
+    // }
+
+    return 1;
+}
 /*{
     FILE *temp_file = fopen("temp_file.txt", "w");
     if(temp_file == NULL){
@@ -629,7 +692,7 @@ int updateRecordFile(char *path, BibData *bib)
     }
     // @ temp test
     printf("before for\n");
-    
+
 
     for (int i = 0; i < bib->size; i++) {
         char *prestito = strstr(bib->book[i], "prestito:");
@@ -647,8 +710,8 @@ int updateRecordFile(char *path, BibData *bib)
             time_t date = date_extract(prestito);
 
             time_t now = time(NULL);
-            
-            
+
+
         } else {
             // @ temp test
             printf("no prestito\n");
@@ -663,7 +726,7 @@ int updateRecordFile(char *path, BibData *bib)
     fclose(temp_file);
     return 1;
 }*/
-{
+/*{
     // @ temp test
     printf("path = (%s)\n", path);
     FILE *fp = fopen("temp_record_file.txt", "w");
@@ -765,7 +828,7 @@ int updateRecordFile(char *path, BibData *bib)
 
     fclose(fp);
     return 1;
-}
+}*/
 
 // TODO - desc + translate
 void freeBib(BibData *bib)

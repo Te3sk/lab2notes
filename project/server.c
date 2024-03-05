@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
     {
         // if NULL the file on the path given doesn't exits
         printf("ERROR: the given path does not correspond to any existing file\n");
-        freeMem();
+        // freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror("socket creation failed");
-        freeMem();
+        // freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror(THIS_PATH "main - socket_path allocation failed");
-        freeMem();
+        // freeMem();
         exit(EXIT_FAILURE);
     }
     sprintf(socket_path, "socket/%s_sock", name_bib);
@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror("bind failed");
-        freeMem();
+        // freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror(THIS_PATH "main - q allocation failed");
-        freeMem();
+        // freeMem();
         exit(EXIT_FAILURE);
     }
     queue_init(q);
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror(THIS_PATH "main - tid[] allocation failed");
-        freeMem();
+        // freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
         {
             // error handling
             perror("accept failed");
-            freeMem();
+            // freeMem();
             exit(EXIT_FAILURE);
         }
         // take request from the client on the socket
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
             {
                 // error handling
                 perror(THIS_PATH "main - req allocation failed");
-                freeMem();
+                // freeMem();
                 exit(EXIT_FAILURE);
             }
             req->senderFD = client_fd;
@@ -255,8 +255,6 @@ void *worker()
 
             if (response == NULL)
             {
-                // @ temp test
-                printf("not find\n");
                 // nothing find
                 sendData(req->senderFD, MSG_NO, "");
                 // update log file
@@ -266,29 +264,37 @@ void *worker()
             else
             {
                 // initializing size and the string to send to the client
-                int size = 0;
-                char *data = (char *)calloc(1, sizeof(char));
+                size_t size = 0;
+                // compute data size
+                for (int i = 0; i < response->size; i++) {
+                    // length of records
+                    size += (strlen(bib->book[response->pos[i]])) * sizeof(char);
+                }
+                // add one '\n' for each record + one '\0' for the end
+                size += (response->size + 1) * sizeof(char);
+                char *data = (char*)malloc(size);
                 if (data == NULL)
                 {
                     // error handling
                     perror(THIS_PATH "worker - data allocation failed");
                     exit(EXIT_FAILURE);
-                }
+                }  
+
+                int index = 0;
+
                 // iter the records that matched with the request
                 for (int i = 0; i < response->size; i++)
                 {
-                    // reallocation of data for the string to append
-                    size += strlen(bib->book[response->pos[i]]);
-                    data = realloc(data, strlen(bib->book[response->pos[i]]) + size + 2);
-
                     // concat the strings
                     strcat(data, bib->book[response->pos[i]]);
+                    index += strlen(bib->book[response->pos[i]]);
 
-                    data[size + 1] = '\n';
+                    data[++index] = '\n';
+                    data[++index] = '\0';
                 }
 
                 // end string sign
-                data[++size] = '\0';
+                data[index] = '\0';
 
                 // remove strange char at the beginning
                 int i = 0;
@@ -305,7 +311,7 @@ void *worker()
                 // aggiorna file di log
                 req->loan ? logLoan(log_file, data, response->size) : logQuery(log_file, data, response->size);
                 // free_request(req);
-                free(data);
+                // free(data);
             }
         }
         // free(value);
@@ -401,9 +407,15 @@ void signalHandler(int signum)
 {
     // @ temp test
     printf("segnale di terminazione : %d\n", signum);
+
     // remove this server infos from conf file
+    // @ temp test
+    printf("rimozione informazione dal file di configurazione\n");
     rmServerInfo(name_bib);
+
     // Insert W termination sentinels (one for each thread worker) in the shared reqeust queue, so the threads worker can read all the reqeust and after and themself
+    // @ temp test
+    printf("inserimento sentinelle di terminazione nella coda\n");
     int *temp = (int *)malloc(sizeof(int));
     *temp = TERMINATION_SENTINEL;
     for (int i = 0; i < W; i++)
@@ -411,18 +423,24 @@ void signalHandler(int signum)
         queue_push((void *)temp, q);
     }
 
-    free(temp);
+    // free(temp);
 
     // end log file writing
-    close(log_file);
+    // // @ temp test
+    // printf("chiusura file di log\n");
+    // close(log_file);
 
     // close server socket
+    // @ temp test
+    printf("chiusura socket\n");
     close(server_socket);
     unlink(socket_path);
 
     // write new record_file
+    // @ temp test
+    printf("aggiornamento record file\n");
     // TODO - per ora nuovo file di record in una copia temporanea, per mantenere l'originale
-    if (updateRecordFile(bib_path, bib) < 0)
+    if (updateRecordFile(name_bib, bib_path, bib) < 0)
     {
         // error handling
         printf("%sSignalHandler - error while updating record file\n", THIS_PATH);
@@ -432,7 +450,7 @@ void signalHandler(int signum)
     // @ temp test
     printf("ok\n");
 
-    freeMem();
+    // freeMem();
     exit(EXIT_SUCCESS);
 }
 

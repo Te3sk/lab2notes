@@ -8,7 +8,9 @@ BIBACCESS_BIN = bin/bibaccess
 LIB_SRC = lib/bib_ds.c lib/pars.c lib/queue.c lib/log_func.c
 
 # TEST_CLIENT_PARAM = --author="Luccio, Fabrizio" --title="Mathematical and Algorithmic Foundations of the Internet"
-TEST_CLIENT_PARAM = --autore="Kernighan, Brian W." --titolo="Il linguaggio C (seconda Edizione)"
+# TEST_CLIENT_PARAM = --autore="Kernighan, Brian W." --titolo="Il linguaggio C (seconda Edizione)" -p
+TEST_CLIENT_PARAM = --autore="Aho, Alfred V." --titolo="Compilers: Principles, Techniques, and Tools" -p
+
 
 RANDOM := $(shell awk 'BEGIN{srand(); print int(1 + rand() * 5)}')
 TEST_SERVER_PARAM = bib_$$i bib$$i.txt $(RANDOM)

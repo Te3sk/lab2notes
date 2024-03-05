@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <time.h>
 #include "pars.h"
 
 #define THIS_PATH "lib/pars.c/"
