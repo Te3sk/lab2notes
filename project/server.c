@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
     if (bib == NULL)
     {
         // if NULL the file on the path given doesn't exits
-        printf("ERROR: the given path does not correspond to any existing file\n");
+        printf("%s - ERROR: error in record file format or creation of bibData\n", name_bib);
         // freeMem();
         exit(EXIT_FAILURE);
     }
@@ -163,22 +163,9 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // // args = (WorkerArgs **)malloc(sizeof(WorkerArgs *) * W);
-    // // if (args == NULL)
-    // // {
-    // //     // error handling
-    // //     perror(THIS_PATH "main - args failed");
-    // //     freeMem();
-    // //     exit(EXIT_FAILURE);
-    // // }
-
     for (int i = 0; i < W; i++)
     {
         // declaration and initialization of the struct for the thread worker arguments
-        // // args[i] = (WorkerArgs *)malloc(sizeof(WorkerArgs *));
-        // // args[i]->bib = bib;
-        // // args[i]->tid = i;
-        // // pthread_create(&tid[i], NULL, worker, (void *)args);
         pthread_create(&tid[i], NULL, worker, NULL);
     }
 
@@ -310,8 +297,6 @@ void *worker()
 
                 // aggiorna file di log
                 req->loan ? logLoan(log_file, data, response->size) : logQuery(log_file, data, response->size);
-                // free_request(req);
-                // free(data);
             }
         }
         // free(value);
@@ -333,6 +318,8 @@ void *worker()
 void sendData(int clientFD, char type, char *data)
 {
     // send type
+    // @ temp test
+    printf("\t\tSERVER %s - type %c\n", name_bib, type);
     if (send(clientFD, &type, sizeof(char), 0) == -1)
     {
         // error handling
@@ -405,17 +392,17 @@ char readData(int clientFD, char **data)
 */
 void signalHandler(int signum)
 {
-    // @ temp test
-    printf("segnale di terminazione : %d\n", signum);
+    // // // @ temp test
+    // // printf("segnale di terminazione : %d\n", signum);
 
     // remove this server infos from conf file
-    // @ temp test
-    printf("rimozione informazione dal file di configurazione\n");
+    // // // @ temp test
+    // // printf("rimozione informazione dal file di configurazione\n");
     rmServerInfo(name_bib);
 
     // Insert W termination sentinels (one for each thread worker) in the shared reqeust queue, so the threads worker can read all the reqeust and after and themself
-    // @ temp test
-    printf("inserimento sentinelle di terminazione nella coda\n");
+    // // // @ temp test
+    // // printf("inserimento sentinelle di terminazione nella coda\n");
     int *temp = (int *)malloc(sizeof(int));
     *temp = TERMINATION_SENTINEL;
     for (int i = 0; i < W; i++)
@@ -427,18 +414,18 @@ void signalHandler(int signum)
 
     // end log file writing
     // // @ temp test
-    printf("chiusura file di log\n");
+    // // printf("chiusura file di log\n");
     close(log_file);
 
     // close server socket
-    // @ temp test
-    printf("chiusura socket\n");
+    // // // @ temp test
+    // // printf("chiusura socket\n");
     close(server_socket);
     unlink(socket_path);
 
     // write new record_file
-    // @ temp test
-    printf("aggiornamento record file\n");
+    // // // @ temp test
+    // // printf("aggiornamento record file\n");
     // TODO - per ora nuovo file di record in una copia temporanea, per mantenere l'originale
     if (updateRecordFile(name_bib, bib_path, bib) < 0)
     {
@@ -529,31 +516,15 @@ void rmServerInfo(const char *name)
     }
 
     // open a temp file
-    FILE *temp_file = fopen("temp.conf", "w");
+    char *temp_file_path = (char *)malloc(sizeof(char) * (strlen(name) + strlen("_temp.conf") + 1));
+    sprintf(temp_file_path, "%s_temp.conf", name);
+    FILE *temp_file = fopen(temp_file_path, "w");
     if (temp_file == NULL)
     {
         // error handling
         perror(THIS_PATH "rmServerInfo - temp_file allocation failed");
         exit(EXIT_FAILURE);
     }
-
-    // // // temp variables to read name and path in each row of the original file
-    // // size_t name_size = strlen(name) + 1 + 1;
-    // // char *temp_name = (char *)malloc(sizeof(char) * name_size);
-    // // if (temp_name == NULL)
-    // // {
-    // //     // error handling
-    // //     perror(THIS_PATH "rmServerInfo - temp_name allocation failed");
-    // //     exit(EXIT_FAILURE);
-    // // }
-    // // size_t path_size = strlen("socket/") + strlen(name) + strlen("__sock") + 1 + 1;
-    // // char *temp_path = (char *)malloc(sizeof(char) * path_size);
-    // // if (temp_path == NULL)
-    // // {
-    // //     // error handling
-    // //     perror(THIS_PATH "rmServerInfo - temp_path allocation failed");
-    // //     exit(EXIT_FAILURE);
-    // // }
 
     // read each line
     char *temp_name = (char *)malloc(sizeof(char) * 1024);
@@ -566,8 +537,6 @@ void rmServerInfo(const char *name)
             // if isn't the name of the current server, write it and the path in the temp file
             fprintf(temp_file, "%s %s\n", temp_name, temp_path);
         }
-        // free(temp_name);
-        // free(temp_path);
     }
 
     // close files
@@ -582,7 +551,7 @@ void rmServerInfo(const char *name)
     }
 
     // rename the temp file with the name of the original name
-    if (rename("temp.conf", CONFIG_FILE) != 0)
+    if (rename(temp_file_path, CONFIG_FILE) != 0)
     {
         perror(THIS_PATH "rmServerInfo - Errore nel rinominare il file temporaneo");
         exit(EXIT_FAILURE);

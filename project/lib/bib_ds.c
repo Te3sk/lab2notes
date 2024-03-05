@@ -331,8 +331,6 @@ Response *searchRecord(BibData *bib, Request *req)
 bool loanCheck(BibData *bib, int N, int *rec)
 {
     // iter for the record that match with the request
-    // @ temp test
-    printf("N = %d\n", N);
     // // for (int i = 0; i < response->size; i++)
     for (int i = 0; i < N; i++)
     {
@@ -342,14 +340,9 @@ bool loanCheck(BibData *bib, int N, int *rec)
         // // strcpy(recordCopy, bib->book[response->pos[i]]);
         strcpy(recordCopy, bib->book[rec[i]]);
 
-        // @ temp test
-        printf("\trecord[%d]: (%s)\n", rec[i], recordCopy);
-
         char *pos = strcasestr(recordCopy, "prestito:");
         if (pos != NULL)
         {
-            // @ temp test
-            printf("\t\tcampo prestito presente\n");
             // skip field_code and spaces and set the end of the string
             pos += strlen("prestito:");
             while (isspace(pos[0]))
@@ -377,23 +370,17 @@ bool loanCheck(BibData *bib, int N, int *rec)
 
             if (diff <= 0)
             {
-                // @ temp test
-                printf("\t\t\tscaduto\n");
                 // time_data <= now
                 return true;
             }
             else
             {
-                // @ temp test
-                printf("\t\t\tnon scaduto\n");
                 // time_data > now
                 return false;
             }
         }
         else
         {
-            // @ temp test
-            printf("\t\tcampo prestito NON presente\n");
             return true;
         }
     }
@@ -409,15 +396,11 @@ bool loanCheck(BibData *bib, int N, int *rec)
 */
 void loanUpdate(BibData *bib, Response *response)
 {
-    // @ temp test
-    printf("response->size = %d\n", response->size);
     for (int i = 0; i < response->size; i++)
     {
         char *pos = strstr(bib->book[response->pos[i]], "prestito");
         if (pos != NULL)
         {
-            // @ temp test
-            printf("sostituisco la data\n");
             char *expireDate = (char *)malloc(sizeof(char) * 29);
             if (expireDate == NULL)
             {
@@ -446,8 +429,6 @@ void loanUpdate(BibData *bib, Response *response)
         }
         else
         {
-            // @ temp test
-            printf("inserisco la data (da 0)\n");
             char *expireDate = (char *)malloc(sizeof(char) * 29);
             if (expireDate == NULL)
             {

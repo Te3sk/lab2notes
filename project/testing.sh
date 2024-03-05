@@ -38,5 +38,5 @@ pkill -u $(whoami) -INT $(basename $server_path)
 sleep 10
 
 #lancio bibaccess
-$bibaccess_path --query bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log
-$bibaccess_path --loan bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log
+# $bibaccess_path --query bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log
+# $bibaccess_path --loan bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log

@@ -50,6 +50,8 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < serverNum; i++)
     {
+        // @ temp test
+        printf("CLIENT - INTERROGO SERVER %s\n", serverInfo[i].name);
         int socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (socket_fd == -1)
         {
@@ -69,15 +71,15 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
 
-        // @ temp test
-        printf("connected with %s\n", serverInfo->socket_path);
+        // // // @ temp test
+        // // printf("connected with %s\n", serverInfo->socket_path);
 
         sendData(socket_fd, loan ? MSG_LOAN : MSG_QUERY, parameters);
 
         // @ temp test
+        printf("\tsend request (%s) to server (%s)\n", parameters, serverInfo[i].name);
 
         char *response = readData(socket_fd);
-        printf("send data, wait for responce\n");
 
         if (response != NULL)
         {
@@ -169,7 +171,7 @@ char *readData(int socketFD)
     }
     else
     {
-        printf("ERROR: invalid type\n");
+        printf("ERROR: invalid type (%c)\n", type);
         exit(EXIT_FAILURE);
     }
 }
