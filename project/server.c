@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror("listen failed");
-        freeMem();
+        // freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -427,8 +427,8 @@ void signalHandler(int signum)
 
     // end log file writing
     // // @ temp test
-    // printf("chiusura file di log\n");
-    // close(log_file);
+    printf("chiusura file di log\n");
+    close(log_file);
 
     // close server socket
     // @ temp test
@@ -446,9 +446,6 @@ void signalHandler(int signum)
         printf("%sSignalHandler - error while updating record file\n", THIS_PATH);
         exit(EXIT_FAILURE);
     }
-
-    // @ temp test
-    printf("ok\n");
 
     // freeMem();
     exit(EXIT_SUCCESS);
@@ -592,27 +589,27 @@ void rmServerInfo(const char *name)
     }
 }
 
-// TODO - desc
-void freeMem()
-{
-    if (bib != NULL)
-    {
-        freeBib(bib);
-        bib = NULL;
-    }
+// // TODO - desc
+// void freeMem()
+// {
+//     if (bib != NULL)
+//     {
+//         freeBib(bib);
+//         bib = NULL;
+//     }
 
-    if (socket_path != NULL)
-    {
-        free(socket_path);
-        socket_path = NULL;
-    }
+//     if (socket_path != NULL)
+//     {
+//         free(socket_path);
+//         socket_path = NULL;
+//     }
 
-    // // for (int i = 0; i < W; i++)
-    // // {
-    // //     free(args[i]);
-    // // }
-    // // free(args);
-    free(tid);
+//     // // for (int i = 0; i < W; i++)
+//     // // {
+//     // //     free(args[i]);
+//     // // }
+//     // // free(args);
+//     free(tid);
 
-    free(q);
-}
+//     free(q);
+// }

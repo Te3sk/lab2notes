@@ -61,30 +61,6 @@ server_test:
 	./$(SERVER_BIN) bib_4 bibData/bib4.txt $(RANDOM) & \
 	./$(SERVER_BIN) bib_5 bibData/bib5.txt $(RANDOM) & \
 
-
-
-
 # TODO - capire come aprire le istanze di client e di server 
 test: all
-	./$(SERVER_BIN) bib_1 bibData/bib1.txt $(RANDOM) & \
-	./$(SERVER_BIN) bib_2 bibData/bib2.txt $(RANDOM) & \
-	./$(SERVER_BIN) bib_3 bibData/bib3.txt $(RANDOM) & \
-	./$(SERVER_BIN) bib_4 bibData/bib4.txt $(RANDOM) & \
-	./$(SERVER_BIN) bib_5 bibData/bib5.txt $(RANDOM) & \
-	sleep 1 && \
-	for i in {1..5}; do \
-		(./(CLIENT_BIN) --autore="Stevens, W. Richard" --title=" Unix Network Programming (Second Edition): Volume1 Networking APIs: Sockets and XTI" -p &\
-		./(CLIENT_BIN) --autore="Fruttero, Carlo" luogo_pubblicazione="Milano" &\
-		./(CLIENT_BIN) --title="Dias De Combate" --editore="Planeta Mexicana" &\
-		./(CLIENT_BIN) --title="La soledad del manager" --anno="1977" -p &\
-		./(CLIENT_BIN) --autore="Kernighan, Brian W." --autore="Baudo, Pippo" -p &\
-		./(CLIENT_BIN) --autore="Baudo, Pippo" --title="L'ultimo dei baudi" &\
-		./(CLIENT_BIN) &\
-		./(CLIENT_BIN) --parametrononvalido &\
-		./(CLIENT_BIN) --author="Dick, Philip K." &\
-		sleep 1);\
-	done && \
-	killall -INT bibserver &&\
-	sleep 10 &&\
-	./$(BIBACCESS_BIN) --query bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log 
-	./$(BIBACCESS_BIN) --loan bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log
+	./testing.sh ./$(SERVER_BIN) ./$(CLIENT_BIN) ./bibaccess.sh

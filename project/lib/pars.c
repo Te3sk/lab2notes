@@ -1,3 +1,4 @@
+// #define _XOPEN_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -277,14 +278,19 @@ void send_int(int num, int fd)
 }
 
 // TODO - desc
-time_t date_extract(char *date) {
+time_t date_extract(char *date)
+{
     struct tm tm_data;
     memset(&tm_data, 0, sizeof(struct tm));
-    strptime(date, "%d-%m-%Y %H:%M:%S", tm_data);
+    // strptime(date, "%d-%m-%Y %H:%M:%S", &tm_data);
+    sscanf(date, "%d-%d-%d %d:%d:%d", &tm_data.tm_mday, &tm_data.tm_mon, &tm_data.tm_year, &tm_data.tm_hour, &tm_data.tm_min, &tm_data.tm_sec);
+    tm_data.tm_year -= 1900; // tm_year rappresenta l'anno meno 1900
+    tm_data.tm_mon -= 1;     // tm_mon rappresenta il mese da 0 a 11
     time_t converted = mktime(&tm_data);
-    if(converted == (time_t)-1){
+    if (converted == (time_t)-1)
+    {
         // error handling
-        perror(THIS_PATH"date_extract - mktime failed");
+        perror(THIS_PATH "date_extract - mktime failed");
         exit(EXIT_FAILURE);
     }
     return converted;

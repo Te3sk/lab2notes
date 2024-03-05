@@ -643,209 +643,73 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
 */
 int updateRecordFile(char *name_bib, char *path, BibData *bib)
 {
-    // @ temp test
-    printf("\tUPDATERECORDFILE\n");
     // unique path of a temporary file
     char *temp_path = (char *)malloc((strlen("temp_") + strlen(name_bib) + strlen("_record_file.txt")) * sizeof(char));
     sprintf(temp_path, "temp_%s_record_file.txt", name_bib);
-    // @ temp test
-    printf("\tpath temporaneo: %s, path originale : %s\n", temp_path, path);
 
     FILE *temp_record = fopen(temp_path, "w");
     if (temp_record == NULL)
     {
         // error handling
         perror(THIS_PATH "updateRecordFile - opening of temp record file failed");
-        exit(EXIT_FAILURE);
-    }
-    // @ temp test
-    printf("\tfile temporaneo aperto\n");
-
-    int *pos = (int *)malloc(bib->size * sizeof(int));
-    for (int i = 0; i < bib->size; i++)
-    {
-        pos[i] = i;
-        // @ temp test
-        printf("pos[%d] = %d\n", i, i);
-    }
-
-    // @ temp test
-    printf("\tarray di support creato\n");
-
-    // TODO - loan check non va bene per questa cosa, fare altra funzione o scrivere qui
-
-    // for (int i = 0; i < bib->size; i++)
-    // {
-    //     // @ temp test
-    //     printf("loan ? - %s\n", loanCheck(bib, bib->size, pos) ? "non presente o scaduto" : "presente");
-    //     // fputs(bib->book[i], temp_record);
-    // }
-
-    return 1;
-}
-/*{
-    FILE *temp_file = fopen("temp_file.txt", "w");
-    if(temp_file == NULL){
-        // error handling
-        perror(THIS_PATH"updateRecordFile - temp_file opening failed");
-        exit(EXIT_FAILURE);
-    }
-    // @ temp test
-    printf("before for\n");
-
-
-    for (int i = 0; i < bib->size; i++) {
-        char *prestito = strstr(bib->book[i], "prestito:");
-        if (prestito != NULL) {
-
-            prestito += strlen("prestito:");
-
-            while(isspace(*prestito)) {
-                prestito++;
-            }
-
-            prestito[19] = '\0';
-
-
-            time_t date = date_extract(prestito);
-
-            time_t now = time(NULL);
-
-
-        } else {
-            // @ temp test
-            printf("no prestito\n");
-        }
-
-
-        fprintf(temp_file, "%s", bib->book[i]);
-    }
-    // fprintf(temp_file, "\0");
-    fputc('\0', temp_file);
-
-    fclose(temp_file);
-    return 1;
-}*/
-/*{
-    // @ temp test
-    printf("path = (%s)\n", path);
-    FILE *fp = fopen("temp_record_file.txt", "w");
-    if (fp == NULL)
-    {
-        // error handling
-        perror(THIS_PATH "updateRecordFile - fopen failed");
         return -1;
     }
 
-    // @ temp test
-    printf("file aperto\n");
-
-    for (int i = 0; i < bib->size; i++)
-    {
-        // make a copy to mantain the original string
-        char *copy = (char *)malloc(sizeof(char) * strlen(bib->book[i]));
-        if (copy == NULL)
-        {
+    // TODO - loan check non va bene per questa cosa, fare altra funzione o scrivere qui
+    for (int i = 0; i < bib->size; i++) {
+        char *recordCopy = (char*)malloc((strlen(bib->book[i]) + 1) * sizeof(char));
+        if(recordCopy == NULL){
             // error handling
-            perror(THIS_PATH "updateFileRecord - copy allocation failed");
-            free(copy);
+            perror(THIS_PATH"updateFileRecord - recordCopy allocation failed");
             return -1;
         }
-        // @ temp test
-        printf("cpy ok\n");
-        strcpy(copy, bib->book[i]);
-        // search for "prestito" field
-        char *pos = strcasestr(copy, "prestito:");
-        // free(copy);
-        if (pos != NULL)
-        {
-            // @ temp test
-            printf("prestito c'è, controllo..\n");
-            // skip "prestito" and delete initial spaces if there are
+        strcpy(recordCopy, bib->book[i]);
+
+        char *pos = strstr(recordCopy, "prestito:");
+        if (pos != NULL){
             pos += strlen("prestito:");
-            while (isspace(pos[0]))
-            {
+            while(isspace(pos[0])) {
                 pos++;
             }
             pos[19] = '\0';
-            // @ temp test
-            printf("pos aggiornato (%s)\n", pos);
 
-            time_t *now;
+            time_t now;
             now = time(NULL);
-            // @ temp test
-            printf("now fatto\n");
 
-            // parse the string
-            struct tm *tm_data;
-            memset(tm_data, 0, sizeof(struct tm));
-            strptime(pos, "%d-%m-%Y %H:%M:%S", tm_data);
-            // @ temp test
-            printf("stinga parsata\n");
+            struct tm tm_data;
+            memset(&tm_data, 0, sizeof(struct tm));
+            strptime(pos, "%d-%m-%Y %H:%M:%S", &tm_data);
 
-            // comparation
-            time_t time_data = mktime(tm_data);
-            // @ temp test
-            printf("timedata fatto\n");
+            time_t time_data = mktime(&tm_data);
             double diff = difftime(time_data, now);
-            // @ temp test
-            printf("fatta differenza : %f\n", diff);
 
-            if (diff <= 0)
-            {
-                // @ temp test
-                printf("prestito scaduto\n");
-                // prestito scaduto -> rimuovi il campo prestito
-                char *start_prest = strstr(bib->book[i], "prestito:");
-                char *end_prest = strstr(bib->book[i], ";");
-                // // int remove_length = end_prest - start_prest;
-                memmove(start_prest, end_prest, strlen(end_prest));
+            if (diff <= 0) {
+                pos -= strlen("prestito: ");
+                memmove(pos, pos + 30, 30);
+
+                strcpy(bib->book[i], recordCopy);
             }
         }
 
-        // write the record in the file
-        fputs(bib->book[i], fp);
-        // @ temp test
-        printf("ite %d of %d ok\n", i, bib->size);
+        if(fputs(bib->book[i], temp_record) == EOF){
+            // error handling
+            perror(THIS_PATH"updateRecordFile - writing line to file failed");
+            return -1;
+        }
     }
 
-    // @ temp test
-    printf("fine for\n");
-
+    fclose(temp_record);
     if(remove(path) != 0){
         // error handling
-        perror(THIS_PATH"updateRecordFile - removing of original file record failed");
-        exit(EXIT_FAILURE);
+        perror(THIS_PATH"updateFileRecord - failed while removing original record file");
+        return -1;
     }
 
-    if(rename("temp_record_file.txt", path) != 0){
+    if(rename(temp_path, path) != 0){
         // error handling
-        perror(THIS_PATH"updateFileRecord - file renaming failed");
-        exit(EXIT_FAILURE);
-    }
-    // @ temp test
-    printf("finito updatefilerecord\n");
+        perror(THIS_PATH"updateFileRecord - failed while renaming new record file");
+        return -1;
+    } 
 
-    fclose(fp);
     return 1;
-}*/
-
-// TODO - desc + translate
-void freeBib(BibData *bib)
-{
-    // TODO - ancora presenti su valgrind
-
-    if (bib == NULL)
-    {
-        return;
-    }
-
-    // for (int i = 0; i < bib->size; i++)
-    for (int i = 0; i < bib->size; i++)
-    {
-        free(bib->book[i]);
-    }
-    free(bib->book);
-
-    free(bib);
 }

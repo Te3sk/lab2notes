@@ -36,7 +36,6 @@ typedef struct
     pthread_mutex_t mutex;
     // Condition variable for the queue
     pthread_cond_t notEmpty;
-
 } Queue;
 
 // Initialize the queue
