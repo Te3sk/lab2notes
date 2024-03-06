@@ -114,13 +114,3 @@ void *queue_pop(Queue *q)
     // return the data
     return data;
 }
-
-// TODO - desc
-int queue_is_empty(Queue *q) {
-    pthread_mutex_lock(&q->mutex);
-
-    int isEmpty = q->head == NULL;
-
-    pthread_mutex_unlock(&q->mutex);
-    return isEmpty;
-}

@@ -13,12 +13,6 @@
 #include "lib/pars.h"
 #include "lib/log_func.h"
 
-// TODO - fix invalid type(): i client stampano molti invalid type per qualche motivo, credo che sia per problemi nel server sul segnale di terminazione (i worker smettono di lavorare prima di finire la coda)
-// TODO - ancora problemi col segnale di terminazione, in particolare con la join dei thread
-// TODO - ancora da controllare bibaccess
-// TODO - cambiare nomi file e pulire cordice
-// TODO - testare tutto su macchina di alina
-
 #define THIS_PATH "server.c/"
 #define CONFIG_FILE "./config/bib.conf"
 #define MAX_CLIENTS 10 // temp, it must be 40
@@ -47,8 +41,6 @@ typedef struct WorkerArgs
 } WorkerArgs;
 
 // # global variables
-//
-volatile sig_atomic_t terminate = 0;
 // thread worker number (user parameter)
 int W;
 // name of the server (user parameter)
@@ -58,15 +50,15 @@ char *bib_path;
 // file descriptor of the socket
 int server_socket;
 // path of the socket
-char *socket_path; // TODO - free alla fine
+char *socket_path;
 // file descriptor of the log file
 int log_file;
 // array of thread ids
-pthread_t *tid; // TODO - free alla fine
+pthread_t *tid;
 // shared data strucutre filled with all data set
-BibData *bib; // TODO - free alla fine
+BibData *bib;
 // shared queue for the reqeuest
-Queue *q; // TODO - free alla fine
+Queue *q;
 // array of struct to pass arguments to the workers threads
 WorkerArgs **args;
 
@@ -177,8 +169,6 @@ int main(int argc, char *argv[])
         pthread_create(&tid[i], NULL, worker, NULL);
     }
 
-    Request *req = (Request*)malloc(sizeof(Request));
-
     // main cycle
     while (1)
     {
@@ -195,7 +185,7 @@ int main(int argc, char *argv[])
         char *data, type = readData(client_fd, &data);
 
         // check the format of the request and fill the struct
-        req = requestFormatCheck(data, type, client_fd);
+        Request *req = requestFormatCheck(data, type, client_fd);
         if (req == NULL)
         {
             req = (Request *)malloc(sizeof(Request));
@@ -211,48 +201,33 @@ int main(int argc, char *argv[])
             req->size = -1;
         }
 
-
         queue_push((void *)req, q);
-
     }
 
-    free(req);
     return 0;
 }
 
 void *worker()
 {
+    // take data from arg data structure
 
-    while (!terminate || !queue_is_empty(q))
+    while (1)
     {
-        // TODO - ora termina appena arriva al segnaele, controllare anche queue_is_empty nella guardia
-        // @ temp test
-        printf("queue_is_empty = %d | terminate = %d\n", queue_is_empty(q), terminate);
         // take request from shared queue
         void *value = queue_pop(q);
-        // check if the popped value is the termination sentinel
-        if ((*((int *)value)) == TERMINATION_SENTINEL)
-        {
-            // free(arg);
-            // return NULL;
-            // @ temp test
-            printf("(%s) TERMINAAA\n", name_bib);
-            // continue;
-            if (queue_is_empty(q)) {
-                // @ temp test
-                printf("\tè anche VUOTAA\n");
-                break;
-            }
-            break;
-        }
+        // // // check if the popped value is the termination sentinel
+        // // if ((*((int *)value)) == TERMINATION_SENTINEL)
+        // // {
+        // //     break;
+        // //     // return NULL;
+        // // }
 
         // cast value to the right type
         Request *req = ((Request *)value);
 
         if (req == NULL)
         {
-            // return NULL;
-            continue;
+            return NULL;
         }
 
         // check the sentinel for the error msg
@@ -419,9 +394,6 @@ char readData(int clientFD, char **data)
 */
 void signalHandler(int signum)
 {
-    if (signum == SIGINT || signum == SIGTERM) {
-        terminate = 1;
-    }
     // @ temp test
     printf("\t\tSEVER (%s) - SEGNALE DI TERMINAZIONE\n",name_bib);
     // @ temp test
@@ -429,20 +401,13 @@ void signalHandler(int signum)
     // remove this server infos from conf file
     rmServerInfo(name_bib);
 
-    int *temp = (int *)malloc(sizeof(int));
-    *temp = TERMINATION_SENTINEL;
-    for (int i = 0; i < W; i++)
-    {
-        queue_push((void *)temp, q);
-    }
-
     // @ temp test
     printf("\t\t\tSEVER (%s) - waiting for threads join...\n", name_bib);
     for (int i = 0; i < W; i++)
     {
-        pthread_join(tid[i], NULL);
         // @ temp test
-        printf("\t\t\t\t(%s)thread n %d of %d\n",name_bib, i+1, W);
+        printf("\t\t\t\t(%s)thread n %d of %d\n",name_bib, i, W);
+        pthread_join(tid[i], NULL);
     }
 
     // @ temp test
@@ -597,3 +562,28 @@ void rmServerInfo(const char *name)
         remove(temp_file_path);
     }
 }
+
+// // TODO - desc
+// void freeMem()
+// {
+//     if (bib != NULL)
+//     {
+//         freeBib(bib);
+//         bib = NULL;
+//     }
+
+//     if (socket_path != NULL)
+//     {
+//         free(socket_path);
+//         socket_path = NULL;
+//     }
+
+//     // // for (int i = 0; i < W; i++)
+//     // // {
+//     // //     free(args[i]);
+//     // // }
+//     // // free(args);
+//     free(tid);
+
+//     free(q);
+// }
