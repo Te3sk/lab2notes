@@ -19,7 +19,6 @@
 */
 FILE *fileFormatCheck(char *path)
 {
-
     // open the file
     FILE *fp = fopen(path, "rb");
     if (fp == NULL)
@@ -32,7 +31,7 @@ FILE *fileFormatCheck(char *path)
     {
         // error handling
         perror(THIS_PATH "/fileFormatCheck - buffer allocation failed");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     // read the file line by line
@@ -91,10 +90,14 @@ BibData *createBibData(char *path)
 {
     // create a new BibData object
     BibData *bib = malloc(sizeof(BibData));
+    if(bib == NULL){
+        // error handling
+        perror(THIS_PATH"createBibData - bib allocation failed");
+        return NULL;
+    }
 
     // open the file
     FILE *fp = fileFormatCheck(path);
-
     if (fp == NULL)
     {
         // error handling
@@ -125,8 +128,7 @@ BibData *createBibData(char *path)
             // error handling
             perror(THIS_PATH "createBibData - bib->book[bib->size] allocation failed");
             fclose(fp);
-            // freeBib(bib);
-            exit(EXIT_FAILURE);
+            return NULL;
         }
 
         strcpy(bib->book[bib->size], line);
@@ -138,7 +140,6 @@ BibData *createBibData(char *path)
             // error handling
             perror(THIS_PATH "createBibData - temp reallocation failed");
             fclose(fp);
-            // freeBib(bib);
             return NULL;
         }
         bib->book = temp;
@@ -161,7 +162,7 @@ BibData *createBibData(char *path)
     - `char *record` is the single record extract from a bibData
     - `Request *req` is the current request
 ### Return value
-    return `true` if the request match the record, `false` otherwise
+    return `true` if the request match the record, `false` otherwise, NULL on error
 */
 bool recordMatch(char *record, Request *req)
 {
@@ -173,7 +174,7 @@ bool recordMatch(char *record, Request *req)
     {
         // error handling
         perror(THIS_PATH "recordMatch - recordCopy allocation failed");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
     strcpy(recordCopy, record);
     // tokenize record field
@@ -208,7 +209,7 @@ bool recordMatch(char *record, Request *req)
                         {
                             // error handling
                             perror(THIS_PATH "recordMatch - recordCopy allocation failed");
-                            exit(EXIT_FAILURE);
+                            return NULL;
                         }
                         strcpy(secRecordCopy, record);
                         // find the next request field in record
@@ -217,8 +218,6 @@ bool recordMatch(char *record, Request *req)
                         {
                             // not found
                             found = false;
-                            // free(recordCopy);
-                            // free(secRecordCopy);
                             break;
                         }
                         else
@@ -243,8 +242,6 @@ bool recordMatch(char *record, Request *req)
                 }
                 else
                 {
-                    // free(recordCopy);
-                    // free(secRecordCopy);
                     return true;
                 }
             }
@@ -252,8 +249,7 @@ bool recordMatch(char *record, Request *req)
 
         token = strtok(NULL, ";");
     }
-    // free(recordCopy);
-    // free(secRecordCopy);
+    free(recordCopy);
     return found;
 }
 
@@ -275,19 +271,20 @@ Response *searchRecord(BibData *bib, Request *req)
     if (response == NULL)
     {
         perror(THIS_PATH "searchRecord - response allocation failed");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
     response->size = 0;
     response->pos = (int *)malloc(sizeof(int));
     if (response->pos == NULL)
     {
         perror(THIS_PATH "searchRecord - response->pos allocation failed");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
     pthread_mutex_lock(&(bib->mutex));
     for (int i = 0; i < bib->size; i++)
     {
-        if (recordMatch(bib->book[i], req))
+        bool result = recordMatch(bib->book[i], req);
+        if (result == true)
         {
             response->pos = (int *)realloc(response->pos, sizeof(int) * (response->size + 1));
             response->pos[response->size] = i;
@@ -327,17 +324,13 @@ Response *searchRecord(BibData *bib, Request *req)
     Returne `true` if there isn't the field 'prestito' or if the loan is expired (30 days or more from the date) - THE BOOK CAN BE LOANED
     Returne `false` if the loan isn't expired - THE BOOK CAN'T BE LOANED
 */
-// bool loanCheck(BibData *bib, Response *response)
 bool loanCheck(BibData *bib, int N, int *rec)
 {
     // iter for the record that match with the request
-    // // for (int i = 0; i < response->size; i++)
     for (int i = 0; i < N; i++)
     {
         // make a copy of the record to not modify the original
-        // // char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[response->pos[i]]) + 1));
         char *recordCopy = (char *)malloc(sizeof(char) * (strlen(bib->book[rec[i]] + 1)));
-        // // strcpy(recordCopy, bib->book[response->pos[i]]);
         strcpy(recordCopy, bib->book[rec[i]]);
 
         char *pos = strcasestr(recordCopy, "prestito:");
@@ -533,7 +526,17 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         return NULL;
     }
     req->field_codes = (char **)malloc(sizeof(char *));
+    if(req->field_codes == NULL){
+        // error handling
+        perror(THIS_PATH"requestFormatCheck - req->field_codes allocation failed");
+        return NULL;
+    }
     req->field_values = (char **)malloc(sizeof(char *));
+    if(req->field_values == NULL){
+        // error handling
+        perror(THIS_PATH"requestFormatCheck - req->field_values allocation failed");
+        exit(EXIT_FAILURE);
+    }
 
     // copy the request to mantain the original
     char *request_copy = (char *)malloc(sizeof(char) * (strlen(request) + 1));
@@ -558,7 +561,7 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         {
             // error handling
             perror(THIS_PATH "requestFormatCheck - req->field-values[req->size] allocation failed");
-            exit(EXIT_FAILURE);
+            return NULL;
         }
         strcpy(req->field_values[req->size], value);
         req->field_values[req->size][strlen(req->field_values[req->size])] = '\0';
@@ -571,7 +574,7 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         {
             // error handling
             perror(THIS_PATH "requestFormatCheck - req->field_codes[req->size] allocation failed");
-            exit(EXIT_FAILURE);
+            return NULL;
         }
         strcpy(req->field_codes[req->size], token);
         req->field_codes[req->size][strlen(req->field_codes[req->size])] = '\0';
@@ -608,7 +611,6 @@ Request *requestFormatCheck(char *request, char type, int senderFD)
         }
     }
 
-    // // free(request_copy);
     return req;
 }
 
@@ -689,17 +691,30 @@ int updateRecordFile(char *name_bib, char *path, BibData *bib)
     fclose(temp_record);
 
     remove(temp_path);
-    // // if(remove(path) != 0){
-    // //     // error handling
-    // //     perror(THIS_PATH"updateFileRecord - failed while removing original record file");
-    // //     return -1;
-    // // }
-
-    // // if(rename(temp_path, path) != 0){
-    // //     // error handling
-    // //     perror(THIS_PATH"updateFileRecord - failed while renaming new record file");
-    // //     return -1;
-    // // } 
 
     return 1;
+}
+
+/*
+### Description
+    Deallocate all the bib datastructure
+### Parameters
+    - `BibData *bib` is the data structure to deallocate
+*/
+void freeBib(BibData *bib) {
+    if (bib == NULL) {
+        return;
+    }
+
+    if (bib->book != NULL) {
+        for (int i = 0; i < bib->size; i++) {
+            free(bib->book[i]);
+        }
+        free(bib->book);
+        bib->book = NULL;
+    }
+
+    pthread_mutex_destroy(&(bib->mutex));
+
+    free(bib);
 }

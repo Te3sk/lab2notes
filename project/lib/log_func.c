@@ -23,7 +23,7 @@ int openLogFile(char *name_bib)
     {
         // error handling
         perror(THIS_PATH "openLogFile - file opening failed");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     return logFD;
@@ -44,14 +44,32 @@ void logQuery(int logFile, char *record, int resultCount)
     if (resultCount > 0)
     {
         data = (char *)malloc((strlen(record) + strlen("QUERY ") + 4) * sizeof(char));
+        if(data == NULL){
+            // error handling
+            perror(THIS_PATH"logQuery - data allocation failed");
+            exit(EXIT_FAILURE);
+        }
         sprintf(data, "QUERY %d\n%s\n", resultCount, record);
-        write(logFile, data, strlen(data));
+        if(write(logFile, data, strlen(data)) == -1){
+            // error handling
+            perror(THIS_PATH"logQuery - write failed");
+            exit(EXIT_FAILURE);
+        }
     }
     else
     {
         data = (char *)malloc((strlen("QUERY 0\n") +1) * sizeof(char));
+        if(data == NULL){
+            // error handling
+            perror(THIS_PATH"logQuery - data allocation failed");
+            exit(EXIT_FAILURE);
+        }
         strcpy(data, "QUERY 0\n");
-        write(logFile, data, strlen(data));
+        if(write(logFile, data, strlen(data)) == -1){
+            // error handling
+            perror(THIS_PATH"logQuery - write failed");
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
@@ -72,13 +90,11 @@ void logLoan(int logFile, char *record, int resultCount)
         data = (char *)malloc((strlen(record) + strlen("LOAN ") + 4) * sizeof(char));
         sprintf(data, "LOAN %d\n%s\n", resultCount, record);
         write(logFile, data, strlen(data));
-        // fprintf(logFile, "LOAN %d\n%s\n", resultCount, record);
     }
     else
     {
         data = (char *)malloc((strlen("LOAN 0") + 2) * sizeof(char));
         strcpy(data, "LOAN 0\n");
         write(logFile, data, strlen(data));
-        // fprintf(logFile, "LOAN 0\n");
     }
 }

@@ -14,11 +14,11 @@ fi
 
 
 # Avvio dei server 
-$server_path bib_1 bibData/bib1.txt 1 &
-$server_path bib_2 bibData/bib2.txt 2  &
-$server_path bib_3 bibData/bib3.txt 3 &
-$server_path bib_4 bibData/bib4.txt 4 &
-$server_path bib_5 bibData/bib5.txt 5  &
+$server_path bib_1 bibData/bib1.txt 1 > log/bib1_test.log 2>&1 &
+$server_path bib_2 bibData/bib2.txt 2  > log/bib2_test.log 2>&1 &
+$server_path bib_3 bibData/bib3.txt 3 > log/bib3_test.log 2>&1 &
+$server_path bib_4 bibData/bib4.txt 4 > log/bib4_test.log 2>&1 &
+$server_path bib_5 bibData/bib5.txt 5 > log/bib5_test.log 2>&1 &
 
 sleep 1
 
@@ -35,8 +35,9 @@ done
 # Chiusura dei server
 pkill -u $(whoami) -INT $(basename $server_path)
 
+chmod +x $bibaccess_path
 sleep 10
 
 #lancio bibaccess
-# $bibaccess_path --query bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log
-# $bibaccess_path --loan bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log
+$bibaccess_path --query bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log
+$bibaccess_path --loan bib_1.log bib_2.log bib_3.log bib_4.log bib_5.log

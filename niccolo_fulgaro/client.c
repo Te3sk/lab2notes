@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <semaphore.h>
+#include <fcntl.h>
 
 #include "lib/pars.h"
 
@@ -14,6 +16,7 @@
 #define THIS_PATH "client.c/"
 #define USAGE_STRING "Usage: ./client.c --filed=\"value\" -p\n\tonly one field per request, \n\tp indicates loan request"
 #define CONFIG_FILE "./config/bib.conf"
+#define BIB_MUTEX_NAME "bib_conf_mutex"
 
 // Messaggio per richiedere i record che contengono alcune parole specifiche in alcuni campi
 #define MSG_QUERY 'Q'
@@ -181,6 +184,19 @@ char *readData(int socketFD)
 */
 ServerInfo *readServerInfo(int *count)
 {
+    sem_t *bib_mutex = sem_open(BIB_MUTEX_NAME, O_CREAT, S_IRWXU, 1);
+    if (bib_mutex == SEM_FAILED)
+    {
+        perror("unable to obtain the semaphore");
+        return NULL;
+    }
+
+    if (sem_wait(bib_mutex) == -1)
+    {
+        perror("unable to wait on the semaphore");
+        return NULL;
+    }
+
     FILE *config_file = fopen(CONFIG_FILE, "r");
     if (config_file == NULL)
     {
@@ -215,5 +231,18 @@ ServerInfo *readServerInfo(int *count)
     }
 
     fclose(config_file);
+
+      if (sem_post(bib_mutex) == -1)
+    {
+        perror("unable to post on the semaphore");
+        return NULL;
+    }
+
+    if (sem_close(bib_mutex) == -1)
+    {
+        perror("unable to close the semaphore");
+        return NULL;
+    }
+
     return serverInfo;
 }

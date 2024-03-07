@@ -8,16 +8,24 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <stdatomic.h>
+#include <semaphore.h>
+#include <fcntl.h>
 #include "lib/queue.h"
 #include "lib/bib_ds.h"
 #include "lib/pars.h"
 #include "lib/log_func.h"
 
+// TODO - ancora problemi col segnale di terminazione, in particolare con la join dei thread
+// TODO - fix invalid type(): i client stampano molti invalid type per qualche motivo, credo che sia per problemi nel server sul segnale di terminazione (i worker smettono di lavorare prima di finire la coda)
+// TODO - cambiare nomi file e pulire cordice
+// TODO - testare tutto su macchina di alina
+
 #define THIS_PATH "server.c/"
 #define CONFIG_FILE "./config/bib.conf"
-#define MAX_CLIENTS 10 // temp, it must be 40
+#define MAX_CLIENTS 40
 #define MAX_NAME_LENGTH (10 * sizeof(char))
 #define TERMINATION_SENTINEL -1
+#define BIB_MUTEX_NAME "bib_conf_mutex"
 
 // TODO - per ora non lancia con 'bibserver' ma con './bibserver'
 #define USAGE "Run with:\n\n\t$ bibserver name_bib file_record W\n\n\'name_bib\' is the name of the library, \'file_record\' is the path of the file containing the records, \'W\' is the number of workers.\n"
@@ -34,13 +42,15 @@
 #define MSG_ERROR 'E'
 
 // strut passed to the thread workers
-typedef struct WorkerArgs
-{
-    BibData *bib;
-    pthread_t tid;
-} WorkerArgs;
+// // typedef struct WorkerArgs
+// // {
+// //     BibData *bib;
+// //     pthread_t tid;
+// // } WorkerArgs;
 
 // # global variables
+//
+volatile sig_atomic_t terminate = 0;
 // thread worker number (user parameter)
 int W;
 // name of the server (user parameter)
@@ -59,8 +69,8 @@ pthread_t *tid;
 BibData *bib;
 // shared queue for the reqeuest
 Queue *q;
-// array of struct to pass arguments to the workers threads
-WorkerArgs **args;
+// // // array of struct to pass arguments to the workers threads
+// // WorkerArgs **args;
 
 void *worker();
 void sendData(int clientFD, char type, char *data);
@@ -90,12 +100,18 @@ int main(int argc, char *argv[])
     {
         // if NULL the file on the path given doesn't exits
         printf("%s - ERROR: error in record file format or creation of bibData\n", name_bib);
-        // freeMem();
+        freeMem();
         exit(EXIT_FAILURE);
     }
 
     // create log file
     log_file = openLogFile(name_bib);
+    if (log_file == -1)
+    {
+        // error handling
+        perror(THIS_PATH "main - log file opening failed");
+        exit(EXIT_FAILURE);
+    }
 
     //  socket creation
     server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -103,7 +119,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror("socket creation failed");
-        // freeMem();
+        freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -115,7 +131,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror(THIS_PATH "main - socket_path allocation failed");
-        // freeMem();
+        freeMem();
         exit(EXIT_FAILURE);
     }
     sprintf(socket_path, "socket/%s_sock", name_bib);
@@ -126,7 +142,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror("bind failed");
-        // freeMem();
+        freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -135,7 +151,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror("listen failed");
-        // freeMem();
+        freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -148,7 +164,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror(THIS_PATH "main - q allocation failed");
-        // freeMem();
+        freeMem();
         exit(EXIT_FAILURE);
     }
     queue_init(q);
@@ -159,7 +175,7 @@ int main(int argc, char *argv[])
     {
         // error handling
         perror(THIS_PATH "main - tid[] allocation failed");
-        // freeMem();
+        freeMem();
         exit(EXIT_FAILURE);
     }
 
@@ -168,6 +184,8 @@ int main(int argc, char *argv[])
         // declaration and initialization of the struct for the thread worker arguments
         pthread_create(&tid[i], NULL, worker, NULL);
     }
+
+    Request *req = (Request *)malloc(sizeof(Request));
 
     // main cycle
     while (1)
@@ -178,14 +196,14 @@ int main(int argc, char *argv[])
         {
             // error handling
             perror("accept failed");
-            // freeMem();
+            freeMem();
             exit(EXIT_FAILURE);
         }
         // take request from the client on the socket
         char *data, type = readData(client_fd, &data);
 
         // check the format of the request and fill the struct
-        Request *req = requestFormatCheck(data, type, client_fd);
+        req = requestFormatCheck(data, type, client_fd);
         if (req == NULL)
         {
             req = (Request *)malloc(sizeof(Request));
@@ -204,30 +222,30 @@ int main(int argc, char *argv[])
         queue_push((void *)req, q);
     }
 
+    free_request(req);
     return 0;
 }
 
 void *worker()
 {
-    // take data from arg data structure
 
-    while (1)
+    while (!terminate)
     {
+        // TODO - ora termina appena arriva al segnaele, controllare anche queue_is_empty nella guardia
         // take request from shared queue
         void *value = queue_pop(q);
-        // // // check if the popped value is the termination sentinel
-        // // if ((*((int *)value)) == TERMINATION_SENTINEL)
-        // // {
-        // //     break;
-        // //     // return NULL;
-        // // }
+        // check if the popped value is the termination sentinel
+        if ((*((int *)value)) == TERMINATION_SENTINEL)
+        {
+            break;
+        }
 
         // cast value to the right type
         Request *req = ((Request *)value);
 
         if (req == NULL)
         {
-            return NULL;
+            continue;
         }
 
         // check the sentinel for the error msg
@@ -300,10 +318,8 @@ void *worker()
                 req->loan ? logLoan(log_file, data, response->size) : logQuery(log_file, data, response->size);
             }
         }
-        // free(value);
     }
-    // free(arg);
-    return NULL;
+    pthread_exit(NULL);
 }
 
 /*
@@ -334,9 +350,6 @@ void sendData(int clientFD, char type, char *data)
         perror(THIS_PATH "sendData - data sending failed");
         exit(EXIT_FAILURE);
     }
-
-    // // // @ temp test
-    // // printf("\nSERVER - send data (type : %c)\n", type);
 }
 
 /*
@@ -395,48 +408,55 @@ char readData(int clientFD, char **data)
 void signalHandler(int signum)
 {
     // @ temp test
-    printf("\t\tSEVER (%s) - SEGNALE DI TERMINAZIONE\n",name_bib);
+    printf("1\n");
+    if (signum == SIGINT || signum == SIGTERM)
+    {
+        terminate = 1;
+    }
+    else
+    {
+        printf("Unknown signal : %d", signum);
+        exit(EXIT_FAILURE);
+    }
     // @ temp test
-    printf("\t\t\tSEVER (%s) - removing server info...\n", name_bib);
+    printf("2\n");
     // remove this server infos from conf file
     rmServerInfo(name_bib);
-
     // @ temp test
-    printf("\t\t\tSEVER (%s) - waiting for threads join...\n", name_bib);
+    printf("3\n");
+    int *temp = (int *)malloc(sizeof(int));
+    *temp = TERMINATION_SENTINEL;
     for (int i = 0; i < W; i++)
     {
-        // @ temp test
-        printf("\t\t\t\t(%s)thread n %d of %d\n",name_bib, i, W);
-        pthread_join(tid[i], NULL);
+        queue_push((void *)temp, q);
     }
 
+    for (int i = 0; i < W; i++)
+    {
+        pthread_join(tid[i], NULL);
+    }
     // @ temp test
-    printf("\t\t\tSEVER (%s) - closing socket...\n", name_bib);
+    printf("4\n");
+    free(temp);
+    // @ temp test
+    printf("5\n");
     // close server socket
     close(server_socket);
     unlink(socket_path);
-
     // @ temp test
-    printf("\t\t\tSEVER (%s) - closing log file...\n", name_bib);
+    printf("6\n");
     // end log file writing
     close(log_file);
-
-    // // if (remove(bib_path) != 0)
-    // // {
-    // //     // error handling
-    // //     perror(THIS_PATH "signalHandler - remove bib_path failed");
-    // //     exit(EXIT_FAILURE);
-    // // }
-
+    // @ temp test
+    printf("7\n");
     // write new record_file
-    // TODO - per ora nuovo file di record in una copia temporanea, per mantenere l'originale
     if (updateRecordFile(name_bib, bib_path, bib) < 0)
     {
         // error handling
         printf("%sSignalHandler - error while updating record file\n", THIS_PATH);
-        // // exit(EXIT_FAILURE);
     }
-
+    // @ temp test
+    printf("8\n");
     // freeMem();
     exit(EXIT_SUCCESS);
 }
@@ -486,17 +506,43 @@ void checkArgs(int argc, char *argv[])
 */
 void writeServerInfo(const char *name, const char *socket_path)
 {
+    sem_t *bib_mutex = sem_open(BIB_MUTEX_NAME, O_CREAT, S_IRWXU, 1);
+    if (bib_mutex == SEM_FAILED)
+    {
+        perror("unable to obtain the semaphore");
+        return;
+    }
+
+    if (sem_wait(bib_mutex) == -1)
+    {
+        perror("unable to wait on the semaphore");
+        return;
+    }
+
     // Open the file in append mod
     FILE *config_file = fopen(CONFIG_FILE, "a");
     if (config_file == NULL)
     {
         perror(THIS_PATH "writeServerInfo - Error opening config file");
+        return;
     }
 
     // Write the server infos in the configuration file
     fprintf(config_file, "%s %s\n", name, socket_path);
 
     fclose(config_file);
+
+    if (sem_post(bib_mutex) == -1)
+    {
+        perror("unable to post on the semaphore");
+        return;
+    }
+
+    if (sem_close(bib_mutex) == -1)
+    {
+        perror("unable to close the semaphore");
+        return;
+    }
 }
 
 /*
@@ -508,6 +554,19 @@ void writeServerInfo(const char *name, const char *socket_path)
 */
 void rmServerInfo(const char *name)
 {
+    sem_t *bib_mutex = sem_open(BIB_MUTEX_NAME, O_CREAT, S_IRWXU, 1);
+    if (bib_mutex == SEM_FAILED)
+    {
+        perror("unable to obtain the semaphore");
+        return;
+    }
+
+    if (sem_wait(bib_mutex) == -1)
+    {
+        perror("unable to wait on the semaphore");
+        return;
+    }
+
     // Open the file in read/write mod
     FILE *config_file = fopen(CONFIG_FILE, "r+");
 
@@ -543,47 +602,66 @@ void rmServerInfo(const char *name)
         }
     }
 
-    rewind(config_file);
-    char c;
-    while ((c = fgetc(temp_file)) != EOF)
-    {
-        fputc(c, config_file);
-    }
-
     // close files
     fclose(config_file);
     fclose(temp_file);
 
-    // // // @ temp test
-    // // printf("\tRMSERVERINFO - removing %s\n", temp_file_path);
-    sleep(2);
-    if (access(temp_file_path, F_OK) != -1)
+    if(remove(CONFIG_FILE) != 0){
+        // error handling
+        perror(THIS_PATH"rmServerInfo - original file removing failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if(rename(temp_file_path, CONFIG_FILE) != 0){
+        // error handling
+        perror(THIS_PATH"rmServerInfo - new conf file renaming failed");
+        exit(EXIT_FAILURE);
+    }
+
+    
+    if (sem_post(bib_mutex) == -1)
     {
-        remove(temp_file_path);
+        perror("unable to post on the semaphore");
+        return;
+    }
+
+    if (sem_close(bib_mutex) == -1)
+    {
+        perror("unable to close the semaphore");
+        return;
+    }
+
+    if(sem_unlink(BIB_MUTEX_NAME)==-1 && errno!=ENOENT){
+        perror("unable to unlink the semaphore");
+        return;
     }
 }
 
-// // TODO - desc
-// void freeMem()
-// {
-//     if (bib != NULL)
-//     {
-//         freeBib(bib);
-//         bib = NULL;
-//     }
-
-//     if (socket_path != NULL)
-//     {
-//         free(socket_path);
-//         socket_path = NULL;
-//     }
-
-//     // // for (int i = 0; i < W; i++)
-//     // // {
-//     // //     free(args[i]);
-//     // // }
-//     // // free(args);
-//     free(tid);
-
-//     free(q);
-// }
+void freeMem()
+{
+    if (name_bib != NULL)
+    {
+        free(name_bib);
+    }
+    if (bib_path != NULL)
+    {
+        free(bib_path);
+    }
+    if (socket_path != NULL)
+    {
+        free(socket_path);
+    }
+    if (q != NULL)
+    {
+        queue_destroy(q);
+        free(q);
+    }
+    if (tid != NULL)
+    {
+        free(tid);
+    }
+    if (bib != NULL)
+    {
+        freeBib(bib);
+    }
+}

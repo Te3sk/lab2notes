@@ -58,3 +58,7 @@ server_test:
 # TODO - capire come aprire le istanze di client e di server 
 test: all
 	./testing.sh ./$(SERVER_BIN) ./$(CLIENT_BIN) ./bibaccess.sh
+
+
+testing_logs: all
+	./test_logs.sh ./$(SERVER_BIN) ./$(CLIENT_BIN) ./bibaccess.sh

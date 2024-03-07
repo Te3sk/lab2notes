@@ -50,4 +50,7 @@ void queue_push(void *data, Queue *q);
 // Pop an element from the queue
 void *queue_pop(Queue *q);
 
+// TODO - desc
+int queue_is_empty(Queue *q);
+
 #endif
