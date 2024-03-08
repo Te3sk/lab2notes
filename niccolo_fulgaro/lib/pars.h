@@ -32,7 +32,7 @@ typedef struct Response {
     int *pos;
     int size;
     bool loan;
-} Response;
+} Response; 
 
 void free_request(Request *request);
 Request *requestParser(char *string);

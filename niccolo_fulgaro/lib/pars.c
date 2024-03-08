@@ -276,7 +276,15 @@ void send_int(int num, int fd)
     } while (left > 0); // continue untill it send all bytes
 }
 
-// TODO - desc
+
+/*
+### Description
+    take a date in a string and converte it in a time_t type
+### Parameters
+    - `char *date` is the string with the date
+### Return value
+    return the converted date (of the time_t type). On error print a msg and exit
+*/
 time_t date_extract(char *date)
 {
     struct tm tm_data;

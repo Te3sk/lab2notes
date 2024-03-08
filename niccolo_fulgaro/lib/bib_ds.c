@@ -14,7 +14,7 @@
 ### Parameters
     `path` is the path of the txt file
 ### Return value
-    If the file is totally right (not empty and right format) return 1
+    If the file is totally right (not empty and right format) return the file descriptor
     If the file is empty, doesn't exists or of the wrong format return NULL
 */
 FILE *fileFormatCheck(char *path)
@@ -301,7 +301,6 @@ Response *searchRecord(BibData *bib, Request *req)
 
     if (req->loan)
     {
-        // response->loan = loanCheck(bib, response);
         response->loan = loanCheck(bib, response->size, response->pos);
         if (response->loan)
         {
@@ -319,7 +318,8 @@ Response *searchRecord(BibData *bib, Request *req)
     Check if the loan if aviable checking check if the field 'prestito' is there and comparing it with te actual date if necessary
 ### Parameters
     - `BibData *bib` is the pointer to the bib datastructure (all records)
-    - `Response *response` is the datastructure with the response for answare to the client
+    - `int N` is the number of record to check
+    - `int *rec` is an array with the position of the record to check;
 ### Return value
     Returne `true` if there isn't the field 'prestito' or if the loan is expired (30 days or more from the date) - THE BOOK CAN BE LOANED
     Returne `false` if the loan isn't expired - THE BOOK CAN'T BE LOANED

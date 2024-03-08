@@ -41,13 +41,6 @@
 // MSG ERROR Messaggio di errore. Questo tipo di messaggio viene spedito quando si è verificato un errore nel processare la richiesta del client.
 #define MSG_ERROR 'E'
 
-// strut passed to the thread workers
-// // typedef struct WorkerArgs
-// // {
-// //     BibData *bib;
-// //     pthread_t tid;
-// // } WorkerArgs;
-
 // # global variables
 //
 volatile sig_atomic_t terminate = 0;
@@ -69,8 +62,6 @@ pthread_t *tid;
 BibData *bib;
 // shared queue for the reqeuest
 Queue *q;
-// // // array of struct to pass arguments to the workers threads
-// // WorkerArgs **args;
 
 void *worker();
 void sendData(int clientFD, char type, char *data);
@@ -407,8 +398,6 @@ char readData(int clientFD, char **data)
 */
 void signalHandler(int signum)
 {
-    // @ temp test
-    printf("1\n");
     if (signum == SIGINT || signum == SIGTERM)
     {
         terminate = 1;
@@ -418,12 +407,9 @@ void signalHandler(int signum)
         printf("Unknown signal : %d", signum);
         exit(EXIT_FAILURE);
     }
-    // @ temp test
-    printf("2\n");
+
     // remove this server infos from conf file
     rmServerInfo(name_bib);
-    // @ temp test
-    printf("3\n");
     int *temp = (int *)malloc(sizeof(int));
     *temp = TERMINATION_SENTINEL;
     for (int i = 0; i < W; i++)
@@ -435,28 +421,22 @@ void signalHandler(int signum)
     {
         pthread_join(tid[i], NULL);
     }
-    // @ temp test
-    printf("4\n");
     free(temp);
-    // @ temp test
-    printf("5\n");
+
     // close server socket
     close(server_socket);
     unlink(socket_path);
-    // @ temp test
-    printf("6\n");
+
     // end log file writing
     close(log_file);
-    // @ temp test
-    printf("7\n");
+
     // write new record_file
     if (updateRecordFile(name_bib, bib_path, bib) < 0)
     {
         // error handling
         printf("%sSignalHandler - error while updating record file\n", THIS_PATH);
     }
-    // @ temp test
-    printf("8\n");
+
     // freeMem();
     exit(EXIT_SUCCESS);
 }

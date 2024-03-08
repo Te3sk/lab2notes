@@ -32,7 +32,6 @@ Response *searchRecord(BibData *bib, Request *req);
 
 FILE *fileFormatCheck(char *path);
 
-// bool loanCheck(BibData *bib, Response *response);
 bool loanCheck(BibData *bib, int N, int *rec);
 
 void loanUpdate(BibData *bib, Response *response);
